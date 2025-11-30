@@ -30,14 +30,18 @@ export default function Topbar({ currentPath }) {
 
         {/* Mini profile with premium styling */}
         <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100 hover:border-indigo-300 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
-              Admin
-            </p>
-            <p className="text-xs text-slate-500">BluePack</p>
-          </div>
-          <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center text-base font-bold shadow-md group-hover:shadow-xl group-hover:scale-105 transition-all duration-300 border-2 border-white">
-            A
+          <div className="flex items-center gap-2">
+            <img
+              src="/bluepacklogo.jpg"
+              alt="Logo BluePack"
+              className="h-8 w-8 rounded-full object-cover border-2 border-white shadow-sm"
+            />
+            <div>
+              <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                Admin
+              </p>
+              <p className="text-xs text-slate-500">BluePack</p>
+            </div>
           </div>
         </div>
       </div>

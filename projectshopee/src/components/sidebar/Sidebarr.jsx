@@ -15,13 +15,17 @@ export default function Sidebar() {
   return (
     <aside className="hidden md:flex md:flex-col w-64 bg-gradient-to-b from-indigo-600 to-violet-600 text-white p-4">
       {/* Brand/logo */}
-      <div className="flex items-center gap-2 mb-8 px-2">
-        <div className="h-9 w-9 rounded-2xl bg-white/20 flex items-center justify-center font-bold">
-          BP
+      <div className="flex items-center gap-3 mb-8 px-2">
+        <div className="h-10 w-10 rounded-xl overflow-hidden bg-white/20 flex items-center justify-center">
+          <img
+            src="/bluepacklogo.jpg"
+            alt="Logo BluePack"
+            className="h-full w-full object-cover"
+          />
         </div>
         <div>
-          <p className="text-xs opacity-80">Shopee</p>
-          <p className="font-semibold text-lg">Rekap Transaksi</p>
+          <p className="text-xs font-medium opacity-90">Shopee</p>
+          <p className="text-base font-bold">BluePack</p>
         </div>
       </div>
 
