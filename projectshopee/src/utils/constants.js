@@ -81,6 +81,13 @@ export const productList = [
     sellPrice: 96000,
     costPrice: 57000,
   },
+  {
+    code: "PAKET-TETES",
+    name: "Paket Botol Tetes (100pcs)",
+    type: "paket",
+    sellPrice: 68000,
+    costPrice: 42000,
+  },
 ];
 
 // Alias supaya bisa diimport sebagai PRODUCTS
