@@ -1,72 +1,86 @@
 // src/utils/calculations.js
-// Single source of truth untuk semua rumus keuangan transaksi & modal.
-
+// Semua rumus untuk transaksi Shopee (fee, cost, profit).
 import {
   SHOPEE_FEE_PERCENT,
   BLUEPACK_SHARE,
   CEMPAKAPACK_SHARE,
 } from "./constants.js";
 
-// Hitung hasil lengkap satu transaksi berdasarkan definisi di dokumen.
-export function calculateTransaction(product, quantity) {
-  const q = Number(quantity);
-  if (!product || !q || q <= 0) return null;
+/**
+ * Hitung biaya potongan Shopee.
+ * @param {number} totalSellPrice
+ */
+export function calculateShopeeFee(totalSellPrice) {
+  return Math.round(totalSellPrice * SHOPEE_FEE_PERCENT);
+}
 
-  // Untuk paket, quantity = jumlah paket; actualQuantity dipakai untuk analitik.
-  const actualQuantity =
-    product.type === "paket" && product.packageSize
-      ? q * product.packageSize
-      : q;
+/**
+ * Hitung semua nilai transaksi untuk 1 item.
+ *
+ * @param {object} param0
+ * product = { sellPrice, costPrice, type, packageSize }
+ * quantity = jumlah unit yang dibeli
+ */
+export function calculateItemValues({ product, quantity }) {
+  if (!product || !quantity || quantity <= 0) {
+    return {
+      quantity: 0,
+      totalSellPrice: 0,
+      shopeeDiscount: 0,
+      netIncome: 0,
+      totalCost: 0,
+      profit: 0,
+      bluePack: 0,
+      cempakaPack: 0,
+      actualQuantity: 0,
+      sellPrice: 0,
+    };
+  }
 
-  const totalSellPrice = product.sellPrice * q;
-  const shopeeDiscount = totalSellPrice * SHOPEE_FEE_PERCENT;
+  // ====== HITUNG DETAIL PRODUK ======
+
+  const {
+    sellPrice,
+    costPrice,
+    type,
+    packageSize = 1, // default jika bukan paket
+  } = product;
+
+  // Paket → actualQuantity = quantity * packageSize
+  const actualQuantity = type === "paket" ? quantity * packageSize : quantity;
+
+  // Harga total jual
+  const totalSellPrice = sellPrice * quantity;
+
+  // Potongan Shopee
+  const shopeeDiscount = calculateShopeeFee(totalSellPrice);
+
+  // Pendapatan bersih
   const netIncome = totalSellPrice - shopeeDiscount;
-  const totalCost = product.costPrice * q;
+
+  // Modal total: dihitung berdasarkan jumlah unit fisik yg keluar
+  const totalCost = costPrice * quantity;
+
+  // Laba
   const profit = netIncome - totalCost;
 
+  // Pembagian laba
   const bluePack = profit * BLUEPACK_SHARE;
   const cempakaPack = profit * CEMPAKAPACK_SHARE;
 
   return {
-    productCode: product.code,
-    productName: product.name,
-    productType: product.type,
-    quantity: q,
+    quantity,
     actualQuantity,
-    sellPrice: product.sellPrice,
-    totalSellPrice,
+    sellPrice,
     shopeeFeePercent: SHOPEE_FEE_PERCENT,
+    totalSellPrice,
     shopeeDiscount,
     netIncome,
-    costPrice: product.costPrice,
+    costPrice,
     totalCost,
     profit,
     bluePack,
     cempakaPack,
-  };
-}
-
-// Hitung ringkasan modal berdasarkan semua transaksi & withdraw.
-export function summarizeModal(transactions = [], withdrawals = []) {
-  const totalModalKeluar = transactions.reduce(
-    (sum, t) => sum + (t.totalCost || 0),
-    0
-  );
-  const totalWithdrawAyah = withdrawals.reduce(
-    (sum, w) => sum + (w.amount || 0),
-    0
-  );
-  const saldoHutangModal = totalModalKeluar - totalWithdrawAyah;
-
-  return {
-    totalModalKeluar,
-    totalWithdrawAyah,
-    saldoHutangModal,
-    status:
-      saldoHutangModal > 0
-        ? "BELUM LUNAS"
-        : saldoHutangModal === 0
-        ? "LUNAS"
-        : "LEBIH BAYAR",
+    productType: type,
   };
 }

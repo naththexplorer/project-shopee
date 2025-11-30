@@ -1,277 +1,470 @@
 // src/pages/TransactionsPage.jsx
-// Versi full: form input transaksi + preview kalkulasi + tabel riwayat (local state via DataContext)
+// Halaman input transaksi (multi-item per transaksi Shopee) + riwayat per item.
+// Di bawah ada tabel riwayat dengan fitur:
+// - search by username (case-insensitive, substring)
+// - delete transaksi per item (memanggil deleteTransaction dari DataContext)
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
-import { productList } from "../utils/constants.js";
-import { calculateTransaction } from "../utils/calculations.js";
-import { formatRupiah, formatDate, formatNumber } from "../utils/formatters.js";
+import { PRODUCTS } from "../utils/constants.js";
+import {
+  calculateItemValues,
+  calculateShopeeFee,
+} from "../utils/calculations.js";
+import {
+  formatRupiah,
+  formatNumber,
+  formatDate,
+} from "../utils/formatters.js";
+import { toast } from "react-hot-toast";
+
+const EMPTY_ITEM = {
+  productCode: "",
+  quantity: 1,
+};
 
 export default function TransactionsPage() {
-  const { transactions, addTransaction, loading } = useData();
+  const { transactions, addTransaction, deleteTransaction, loading } =
+    useData();
 
-  const [buyer, setBuyer] = useState("");
-  const [productCode, setProductCode] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [date, setDate] = useState(
+  // Form state untuk 1 transaksi Shopee (bisa berisi banyak item)
+  const [buyerUsername, setBuyerUsername] = useState("");
+  const [date, setDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
   );
   const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [items, setItems] = useState([ { ...EMPTY_ITEM } ]);
 
-  const selectedProduct =
-    productList.find((p) => p.code === productCode) || null;
-  const calc =
-    selectedProduct && quantity
-      ? calculateTransaction(selectedProduct, Number(quantity))
-      : null;
+  // Pencarian di riwayat
+  const [searchTerm, setSearchTerm] = useState("");
 
-  async function handleSubmit(e) {
+  // ====== HANDLER FORM INPUT TRANSAKSI ======
+
+  const handleItemChange = (index, field, value) => {
+    setItems((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              [field]:
+                field === "quantity" ? Number(value) || 0 : value,
+            }
+          : item
+      )
+    );
+  };
+
+  const addEmptyItemRow = () => {
+    setItems((prev) => [...prev, { ...EMPTY_ITEM }]);
+  };
+
+  const removeItemRow = (index) => {
+    setItems((prev) =>
+      prev.length === 1 ? prev : prev.filter((_, i) => i !== index)
+    );
+  };
+
+  // Hitung preview transaksi dari form (tidak disimpan ke state global)
+  const previewItems = useMemo(() => {
+    const list = [];
+
+    for (const item of items) {
+      const product = PRODUCTS.find(
+        (p) => p.code === item.productCode
+      );
+      if (!product || !item.quantity || item.quantity <= 0) continue;
+
+      const calc = calculateItemValues({
+        product,
+        quantity: item.quantity,
+      });
+
+      list.push({
+        ...calc,
+        productCode: product.code,
+        productName: product.name,
+      });
+    }
+
+    return list;
+  }, [items]);
+
+  const totalPreview = useMemo(() => {
+    let totalSell = 0;
+    let totalFee = 0;
+    let totalNet = 0;
+    let totalCost = 0;
+    let totalProfit = 0;
+
+    for (const it of previewItems) {
+      totalSell += it.totalSellPrice;
+      totalFee += it.shopeeDiscount;
+      totalNet += it.netIncome;
+      totalCost += it.totalCost;
+      totalProfit += it.profit;
+    }
+
+    return {
+      totalSell,
+      totalFee,
+      totalNet,
+      totalCost,
+      totalProfit,
+    };
+  }, [previewItems]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!buyerUsername.trim()) {
+      toast.error("Username pembeli wajib diisi.");
+      return;
+    }
+    if (!date) {
+      toast.error("Tanggal transaksi wajib diisi.");
+      return;
+    }
+    if (previewItems.length === 0) {
+      toast.error("Minimal harus ada 1 item dengan produk & quantity valid.");
+      return;
+    }
+
+    // groupId untuk mengelompokkan beberapa item dalam 1 transaksi Shopee
+    const groupId = `TRX_${date}_${Date.now()}`;
+
     try {
-      if (!buyer.trim() || !productCode || !quantity || !date) {
-        alert("Mohon lengkapi username, produk, quantity, dan tanggal.");
-        return;
+      for (const item of previewItems) {
+        const now = Date.now();
+
+        await addTransaction({
+          groupId,
+          buyerUsername: buyerUsername.trim(),
+          date,
+          timestamp: now,
+
+          productCode: item.productCode,
+          productName: item.productName,
+          productType: item.productType,
+          quantity: item.quantity,
+          actualQuantity: item.actualQuantity,
+
+          sellPrice: item.sellPrice,
+          totalSellPrice: item.totalSellPrice,
+          shopeeFeePercent: item.shopeeFeePercent,
+          shopeeDiscount: item.shopeeDiscount,
+          netIncome: item.netIncome,
+
+          costPrice: item.costPrice,
+          totalCost: item.totalCost,
+
+          profit: item.profit,
+          bluePack: item.bluePack,
+          cempakaPack: item.cempakaPack,
+
+          notes: notes.trim(),
+        });
       }
 
-      setSaving(true);
-      await Promise.resolve(
-        addTransaction({
-          buyerUsername: buyer,
-          productCode,
-          quantity: Number(quantity),
-          date,
-          notes,
-        })
-      );
-
-      setBuyer("");
-      setProductCode("");
-      setQuantity("");
+      toast.success("Transaksi berhasil disimpan (per item).");
+      // Reset form
+      setBuyerUsername("");
+      setDate(new Date().toISOString().slice(0, 10));
       setNotes("");
-      alert("Transaksi tersimpan (versi lokal).");
+      setItems([{ ...EMPTY_ITEM }]);
     } catch (err) {
       console.error(err);
-      alert(err.message || "Gagal menyimpan transaksi.");
-    } finally {
-      setSaving(false);
+      toast.error("Gagal menyimpan transaksi.");
     }
-  }
+  };
+
+  // ====== FILTER RIWAYAT BERDASARKAN SEARCH USERNAME ======
+
+  const filteredTransactions = useMemo(() => {
+    const all = Array.isArray(transactions) ? transactions : [];
+
+    if (!searchTerm.trim()) return all;
+
+    const term = searchTerm.trim().toLowerCase();
+    return all.filter((t) =>
+      (t.buyerUsername || "").toLowerCase().includes(term)
+    );
+  }, [transactions, searchTerm]);
+
+  // sorted terbaru di atas
+  const sortedTransactions = useMemo(
+    () =>
+      [...filteredTransactions].sort(
+        (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
+      ),
+    [filteredTransactions]
+  );
+
+  // Handler hapus per item
+  const handleDelete = async (id) => {
+    if (!id) return;
+
+    const ok = window.confirm(
+      "Yakin ingin menghapus item transaksi ini? Aksi tidak bisa dibatalkan."
+    );
+    if (!ok) return;
+
+    try {
+      await deleteTransaction(id);
+      toast.success("Item transaksi berhasil dihapus.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal menghapus transaksi.");
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header halaman */}
+      {/* HEADER */}
       <div>
-        <h1 className="text-xl font-semibold text-slate-800">Transaksi</h1>
+        <h1 className="text-xl font-semibold text-slate-800">
+          Transaksi
+        </h1>
         <p className="text-sm text-slate-500">
-          Input transaksi Shopee, lihat preview perhitungan fee 17% dan
-          pembagian laba 40% / 60%.
+          Input transaksi Shopee (bisa berisi beberapa item produk) dan
+          lihat riwayat transaksi per item.
         </p>
       </div>
 
-      {/* Grid: Form + Preview */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* FORM */}
-        <div className="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-          <h2 className="text-base font-semibold text-slate-800 mb-1">
-            Input Transaksi
-          </h2>
-          <p className="text-xs text-slate-500 mb-4">
-            Isi username pembeli, pilih produk, quantity, tanggal, dan catatan
-            opsional.
-          </p>
+      {/* FORM INPUT TRANSAKSI */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-4"
+      >
+        <div className="flex flex-col md:flex-row md:items-center md:gap-6 gap-4">
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Username Pembeli (Shopee)
+            </label>
+            <input
+              type="text"
+              value={buyerUsername}
+              onChange={(e) => setBuyerUsername(e.target.value)}
+              placeholder="contoh: tokomakmur123"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Tanggal Transaksi
+            </label>
+            <input
+              type="date"
+              value={date}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setDate(e.target.value)}
+              className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+        </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"
+        {/* TABEL ITEM DALAM 1 TRANSAKSI */}
+        <div className="border border-slate-100 rounded-2xl p-3 space-y-2 bg-slate-50/60">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold text-slate-600">
+              Item Dalam Transaksi Ini
+            </h2>
+            <button
+              type="button"
+              onClick={addEmptyItemRow}
+              className="text-[11px] px-2 py-1 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+            >
+              + Tambah Item
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="text-left text-[11px] uppercase text-slate-400 border-b border-slate-200">
+                  <th className="py-2 pr-4">Produk</th>
+                  <th className="py-2 pr-4 text-right">Qty</th>
+                  <th className="py-2 pr-4 text-right">Total Jual</th>
+                  <th className="py-2 pr-4 text-right">Modal</th>
+                  <th className="py-2 pr-4 text-right">Laba</th>
+                  <th className="py-2 pr-4"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, index) => {
+                  const product = PRODUCTS.find(
+                    (p) => p.code === item.productCode
+                  );
+                  const preview = product
+                    ? calculateItemValues({
+                        product,
+                        quantity: item.quantity || 0,
+                      })
+                    : null;
+
+                  return (
+                    <tr
+                      key={index}
+                      className="border-b border-slate-100"
+                    >
+                      <td className="py-2 pr-4">
+                        <select
+                          value={item.productCode}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "productCode",
+                              e.target.value
+                            )
+                          }
+                          className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                          <option value="">Pilih produk…</option>
+                          {PRODUCTS.map((p) => (
+                            <option key={p.code} value={p.code}>
+                              {p.name} ({formatRupiah(p.sellPrice)})
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 pr-4 text-right">
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.quantity}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "quantity",
+                              e.target.value
+                            )
+                          }
+                          className="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-right focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                      </td>
+                      <td className="py-2 pr-4 text-right">
+                        {preview
+                          ? formatRupiah(preview.totalSellPrice)
+                          : "-"}
+                      </td>
+                      <td className="py-2 pr-4 text-right">
+                        {preview
+                          ? formatRupiah(preview.totalCost)
+                          : "-"}
+                      </td>
+                      <td className="py-2 pr-4 text-right">
+                        {preview
+                          ? formatRupiah(preview.profit)
+                          : "-"}
+                      </td>
+                      <td className="py-2 pr-2 text-right">
+                        {items.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeItemRow(index)}
+                            className="text-[11px] text-rose-600 hover:text-rose-700"
+                          >
+                            Hapus
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* PREVIEW TOTAL TRANSAKSI */}
+          <div className="mt-2 flex flex-wrap gap-4 text-[11px] text-slate-600">
+            <span>
+              Total Jual:{" "}
+              <strong>{formatRupiah(totalPreview.totalSell)}</strong>
+            </span>
+            <span>
+              Potongan Shopee (±17%):{" "}
+              <strong>{formatRupiah(totalPreview.totalFee)}</strong>
+            </span>
+            <span>
+              Net Income:{" "}
+              <strong>{formatRupiah(totalPreview.totalNet)}</strong>
+            </span>
+            <span>
+              Total Modal:{" "}
+              <strong>{formatRupiah(totalPreview.totalCost)}</strong>
+            </span>
+            <span>
+              Laba Bersih:{" "}
+              <strong>{formatRupiah(totalPreview.totalProfit)}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* NOTES + ACTIONS */}
+        <div className="space-y-2">
+          <label className="block text-xs font-medium text-slate-600">
+            Catatan (opsional)
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="Misal: pesanan rutin, beli untuk reseller, dsb."
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setBuyerUsername("");
+              setDate(new Date().toISOString().slice(0, 10));
+              setNotes("");
+              setItems([{ ...EMPTY_ITEM }]);
+            }}
+            className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50"
           >
-            {/* Username */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-slate-700 text-xs">
-                Username Pembeli
-              </label>
-              <input
-                type="text"
-                value={buyer}
-                onChange={(e) => setBuyer(e.target.value)}
-                placeholder="contoh: tokomakmur123"
-                className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-
-            {/* Produk */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-slate-700 text-xs">
-                Produk
-              </label>
-              <select
-                value={productCode}
-                onChange={(e) => setProductCode(e.target.value)}
-                className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">Pilih produk…</option>
-                {productList.map((p) => (
-                  <option key={p.code} value={p.code}>
-                    {p.name} — {formatRupiah(p.sellPrice)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Quantity */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-slate-700 text-xs">
-                Quantity
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {selectedProduct?.type === "paket" && (
-                <p className="text-[11px] text-slate-400">
-                  1 = 1 paket ({formatNumber(selectedProduct.packageSize)} pcs)
-                </p>
-              )}
-            </div>
-
-            {/* Tanggal */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-slate-700 text-xs">
-                Tanggal
-              </label>
-              <input
-                type="date"
-                max={new Date().toISOString().slice(0, 10)}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-
-            {/* Catatan */}
-            <div className="md:col-span-2 flex flex-col gap-1">
-              <label className="font-medium text-slate-700 text-xs">
-                Catatan (optional)
-              </label>
-              <textarea
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="contoh: pesanan rutin bulanan"
-                className="border border-slate-300 rounded-lg px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-
-            {/* Tombol */}
-            <div className="md:col-span-2 flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setBuyer("");
-                  setProductCode("");
-                  setQuantity("");
-                  setNotes("");
-                }}
-                className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 transition"
-              >
-                Reset
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-5 py-2 text-sm rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
-              >
-                {saving ? "Menyimpan…" : "Simpan Transaksi"}
-              </button>
-            </div>
-          </form>
+            Reset
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700"
+          >
+            Simpan Transaksi
+          </button>
         </div>
+      </form>
 
-        {/* PREVIEW */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
-          <h3 className="text-base font-semibold text-slate-800 mb-2">
-            Preview Kalkulasi
-          </h3>
-          <p className="text-xs text-slate-500 mb-3">
-            Pilih produk dan isi quantity untuk melihat simulasi fee, modal, dan laba.
-          </p>
-
-          {calc ? (
-            <div className="space-y-2 text-sm">
-              <div className="bg-slate-50 rounded-xl p-3 space-y-1">
-                <p className="font-medium text-slate-700">
-                  {selectedProduct.name} × {calc.quantity}
-                </p>
-                {selectedProduct.type === "paket" && (
-                  <p className="text-[11px] text-slate-500">
-                    Actual: {formatNumber(calc.actualQuantity)} pcs
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 gap-1 text-xs">
-                <Row
-                  label="Total Harga Jual"
-                  value={formatRupiah(calc.totalSellPrice)}
-                />
-                <Row
-                  label="Potongan Shopee (17%)"
-                  value={formatRupiah(calc.shopeeDiscount)}
-                />
-                <Row
-                  label="Penghasilan Bersih"
-                  value={formatRupiah(calc.netIncome)}
-                />
-                <Row
-                  label="Total Modal"
-                  value={formatRupiah(calc.totalCost)}
-                />
-                <Row label="Laba Bersih" value={formatRupiah(calc.profit)} />
-              </div>
-
-              <div className="mt-3 border-t border-slate-100 pt-3">
-                <p className="text-xs font-semibold text-slate-700 mb-1">
-                  Pembagian Laba
-                </p>
-                <Row
-                  label="BluePack (40%)"
-                  value={formatRupiah(calc.bluePack)}
-                />
-                <Row
-                  label="CempakaPack (60%)"
-                  value={formatRupiah(calc.cempakaPack)}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl p-3">
-              Belum ada data. Pilih produk & isi quantity untuk melihat preview.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* TABEL RIWAYAT */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-        <div className="flex items-center justify-between mb-3">
+      {/* RIWAYAT TRANSAKSI PER ITEM */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
           <div>
             <h2 className="text-base font-semibold text-slate-800">
-              Riwayat Transaksi (Lokal)
+              Riwayat Transaksi (Per Item)
             </h2>
             <p className="text-xs text-slate-500">
-              Menampilkan transaksi yang kamu input selama sesi ini.
+              Setiap baris adalah 1 item produk dalam transaksi Shopee.
+              Kamu bisa mencari berdasarkan username dan menghapus item
+              tertentu jika salah input.
             </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Cari username…"
+              className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
           </div>
         </div>
 
         {loading ? (
           <p className="text-xs text-slate-500">Memuat data…</p>
-        ) : transactions.length === 0 ? (
+        ) : sortedTransactions.length === 0 ? (
           <p className="text-xs text-slate-500">
-            Belum ada transaksi. Input transaksi pertama di form di atas.
+            Belum ada transaksi yang tercatat.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -283,11 +476,13 @@ export default function TransactionsPage() {
                   <th className="py-2 pr-4">Produk</th>
                   <th className="py-2 pr-4 text-right">Qty</th>
                   <th className="py-2 pr-4 text-right">Total Jual</th>
+                  <th className="py-2 pr-4 text-right">Modal</th>
                   <th className="py-2 pr-4 text-right">Laba</th>
+                  <th className="py-2 pr-4 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((t) => (
+                {sortedTransactions.map((t) => (
                   <tr
                     key={t.id}
                     className="border-b border-slate-50 hover:bg-slate-50/60"
@@ -308,7 +503,19 @@ export default function TransactionsPage() {
                       {formatRupiah(t.totalSellPrice)}
                     </td>
                     <td className="py-2 pr-4 text-right">
+                      {formatRupiah(t.totalCost)}
+                    </td>
+                    <td className="py-2 pr-4 text-right">
                       {formatRupiah(t.profit)}
+                    </td>
+                    <td className="py-2 pr-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(t.id)}
+                        className="text-[11px] text-rose-600 hover:text-rose-700"
+                      >
+                        Hapus
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -317,15 +524,6 @@ export default function TransactionsPage() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function Row({ label, value }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-medium text-slate-800">{value}</span>
     </div>
   );
 }

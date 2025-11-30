@@ -75,6 +75,9 @@ export const productList = [
   },
 ];
 
+// Alias supaya bisa diimport sebagai PRODUCTS
+export const PRODUCTS = productList;
+
 // Lookup cepat berdasarkan kode produk.
 export const productMap = productList.reduce((acc, p) => {
   acc[p.code] = p;

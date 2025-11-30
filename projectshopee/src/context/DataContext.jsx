@@ -1,100 +1,121 @@
 // src/context/DataContext.jsx
-// Versi lokal: simpan transaksi & withdraw di state React dulu (tanpa Firebase).
+// Provider global untuk transaksi, withdraw, summary, dan sync dengan Firestore.
 
 import {
-  createContext,
-  useContext,
-  useMemo,
-  useState,
-} from "react";
-import { summarizeModal, calculateTransaction } from "../utils/calculations.js";
-import { productMap } from "../utils/constants.js";
+  collection,
+  addDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  orderBy,
+  query
+} from "firebase/firestore";
 
-const DataContext = createContext(null);
+import { db } from "../config/firebase";
+import { createContext, useContext, useEffect, useState } from "react";
+
+const DataContext = createContext();
+export const useData = () => useContext(DataContext);
 
 export function DataProvider({ children }) {
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Tambah transaksi ke state lokal
-  function addTransactionLocal(data) {
-    const { buyerUsername, productCode, quantity, date, notes } = data;
-    const trimmedBuyer = buyerUsername?.trim();
-    const qty = Number(quantity);
+  // ===============================
+  // LOAD REAL-TIME DATA
+  // ===============================
 
-    if (!trimmedBuyer || !productCode || !qty || !date) {
-      throw new Error("Field wajib belum lengkap.");
-    }
+  useEffect(() => {
+    const q = query(collection(db, "transactions"), orderBy("timestamp", "desc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setTransactions(arr);
+      setLoading(false);
+    });
 
-    const product = productMap[productCode];
-    if (!product) throw new Error("Produk tidak ditemukan.");
+    return () => unsub();
+  }, []);
 
-    const calc = calculateTransaction(product, qty);
-    if (!calc) throw new Error("Data transaksi tidak valid.");
+  useEffect(() => {
+    const q = query(collection(db, "withdrawals"), orderBy("timestamp", "desc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setWithdrawals(arr);
+    });
 
-    const now = Date.now();
-    const id = `LOCAL_${now}_${Math.random().toString(36).slice(2, 7)}`;
+    return () => unsub();
+  }, []);
 
-    const docData = {
-      id,
-      buyerUsername: trimmedBuyer.toLowerCase(),
-      date,
-      timestamp: now,
-      ...calc,
-      notes: notes || "",
-      createdAt: now,
-      updatedAt: now,
-    };
+  // ===============================
+  // ADD TRANSACTION
+  // ===============================
 
-    setTransactions((prev) => [docData, ...prev]);
+  async function addTransaction(data) {
+    await addDoc(collection(db, "transactions"), {
+      ...data,
+      timestamp: data.timestamp || Date.now(),
+    });
   }
 
-  // Tambah withdraw ke state lokal
-  function addWithdrawalLocal(data) {
-    const { amount, date, notes } = data;
-    const nominal = Number(amount);
-    if (!nominal || nominal <= 0 || !date) {
-      throw new Error("Tanggal & nominal withdraw harus diisi.");
-    }
+  // ===============================
+  // DELETE TRANSACTION
+  // ===============================
 
-    const now = Date.now();
-    const id = `WD_${now}_${Math.random().toString(36).slice(2, 7)}`;
-
-    const docData = {
-      id,
-      date,
-      timestamp: now,
-      amount: nominal,
-      notes: notes || "",
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    setWithdrawals((prev) => [docData, ...prev]);
+  async function deleteTransaction(id) {
+    await deleteDoc(doc(db, "transactions", id));
   }
 
-  const modalSummary = useMemo(
-    () => summarizeModal(transactions, withdrawals),
-    [transactions, withdrawals]
-  );
+  // ===============================
+  // ADD WITHDRAWAL
+  // ===============================
 
-  const value = {
-    loading,
-    transactions,
-    withdrawals,
-    modalSummary,
-    addTransaction: addTransactionLocal,
-    addWithdrawal: addWithdrawalLocal,
+  async function addWithdrawal(data) {
+    await addDoc(collection(db, "withdrawals"), {
+      ...data,
+      timestamp: Date.now(),
+    });
+  }
+
+  // ===============================
+  // DELETE WITHDRAWAL
+  // ===============================
+
+  async function deleteWithdrawal(id) {
+    await deleteDoc(doc(db, "withdrawals", id));
+  }
+
+  // ===============================
+  // SUMMARY (computed dari state)
+  // ===============================
+
+  const summary = {
+    totalSell: transactions.reduce((acc, t) => acc + (t.totalSellPrice || 0), 0),
+    totalFee: transactions.reduce((acc, t) => acc + (t.shopeeDiscount || 0), 0),
+    totalNet: transactions.reduce((acc, t) => acc + (t.netIncome || 0), 0),
+    totalCost: transactions.reduce((acc, t) => acc + (t.totalCost || 0), 0),
+    totalProfit: transactions.reduce((acc, t) => acc + (t.profit || 0), 0),
+    bluePack: transactions.reduce((acc, t) => acc + (t.bluePack || 0), 0),
+    cempakaPack: transactions.reduce((acc, t) => acc + (t.cempakaPack || 0), 0),
+
+    totalWithdraw: withdrawals.reduce((acc, w) => acc + (w.amount || 0), 0),
   };
 
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
-}
+  return (
+    <DataContext.Provider
+      value={{
+        transactions,
+        withdrawals,
+        summary,
+        loading,
 
-export function useData() {
-  const ctx = useContext(DataContext);
-  if (!ctx) {
-    throw new Error("useData harus dipakai di dalam <DataProvider>.");
-  }
-  return ctx;
+        addTransaction,
+        deleteTransaction,
+        addWithdrawal,
+        deleteWithdrawal,
+      }}
+    >
+      {children}
+    </DataContext.Provider>
+  );
 }
