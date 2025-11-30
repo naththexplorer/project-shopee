@@ -42,8 +42,9 @@ export default function Sidebarr({ currentPath, isOpen, onClose }) {
           bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900
           text-white
           border-r border-indigo-800/40
-          min-h-screen
-          sticky top-0
+          fixed top-0 left-0 bottom-0
+          overflow-y-auto
+          z-30
         "
       >
         {/* Logo & brand */}
@@ -52,9 +53,9 @@ export default function Sidebarr({ currentPath, isOpen, onClose }) {
             <span className="text-xl font-black tracking-tight">BP</span>
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold">BluePack x CempakaPack</span>
+            <span className="text-sm font-semibold">Rekap Shopee</span>
             <span className="text-[11px] text-white/60">
-              Shopee Sales Console
+              Admin
             </span>
           </div>
         </div>
@@ -74,9 +75,12 @@ export default function Sidebarr({ currentPath, isOpen, onClose }) {
 
         {/* Footer kecil */}
         <div className="px-4 py-4 border-t border-white/10 text-[11px] text-white/50">
-          v1.0 • React + Vite + Firebase
+          made by firdaus
         </div>
       </aside>
+
+      {/* Spacer untuk konten utama */}
+      <div className="hidden md:block w-64 xl:w-72 flex-shrink-0" />
 
       {/* MOBILE SIDEBAR OVERLAY */}
       <div

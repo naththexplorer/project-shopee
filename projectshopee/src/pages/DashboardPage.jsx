@@ -338,32 +338,17 @@ export default function DashboardPage() {
 }
 
 // Premium MiniStat component
-function MiniStat({ label, value, helper, color = "blue", subdued = false }) {
-  const colorClasses = {
-    blue: subdued
-      ? "from-blue-50 to-indigo-50 border-blue-100"
-      : "from-blue-100 to-indigo-100 border-blue-200",
-    purple: subdued
-      ? "from-purple-50 to-violet-50 border-purple-100"
-      : "from-purple-100 to-violet-100 border-purple-200",
-  };
-
-  const textColor = color === "blue" ? "text-indigo-600" : "text-violet-600";
-
+function MiniStat({ label, value, helper }) {
   return (
-    <div
-      className={`bg-gradient-to-br ${colorClasses[color]} rounded-2xl px-5 py-4 border hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group`}
-    >
-      <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2">
+    <div className="bg-white rounded-2xl px-5 py-4 border border-slate-200">
+      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
         {label}
       </p>
-      <p
-        className={`text-2xl font-extrabold ${textColor} mb-1 group-hover:scale-105 transition-transform`}
-      >
+      <p className="text-2xl font-bold text-slate-900 mb-1">
         {value}
       </p>
       {helper && (
-        <p className="text-[10px] text-slate-500 leading-relaxed">{helper}</p>
+        <p className="text-xs text-slate-400">{helper}</p>
       )}
     </div>
   );
@@ -373,12 +358,8 @@ function MiniStat({ label, value, helper, color = "blue", subdued = false }) {
 function Row({ label, value, highlight = false }) {
   return (
     <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-      <span className="text-sm text-slate-600 font-medium">{label}</span>
-      <span
-        className={`text-sm font-bold ${
-          highlight ? "text-rose-600" : "text-slate-900"
-        }`}
-      >
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <span className={`text-sm font-medium ${highlight ? "text-rose-500" : "text-slate-900"}`}>
         {value}
       </span>
     </div>
