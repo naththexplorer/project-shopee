@@ -1,0 +1,33 @@
+/* src/index.css */
+/* Global styles + bootstrap Tailwind, buat dasar layout dashboard */
+
+@import "tailwindcss";
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-size: 16px; /* 👉 naikin base font biar nggak terlalu kecil */
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter",
+    "Segoe UI", sans-serif;
+  background-color: #f9fafb;
+  color: #020617;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Scrollbar tipis biar lebih clean */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5f5;
+  border-radius: 9999px;
+}
