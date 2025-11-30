@@ -1,17 +1,11 @@
 // src/pages/ModalPage.jsx
 // Halaman manajemen modal & withdraw ayah.
-// - Hitung total modal keluar dari transaksi
-// - Hitung total withdraw ayah
-// - Tampilkan saldo hutang modal + status (LUNAS / BELUM LUNAS)
-// - Form untuk input withdraw baru
-// - Tabel riwayat withdraw
 
 import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
 import {
   formatRupiah,
   formatDate,
-  formatNumber,
 } from "../utils/formatters.js";
 
 export default function ModalPage() {
@@ -24,7 +18,7 @@ export default function ModalPage() {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Hitung ringkasan modal berdasarkan transaksi & withdraw yang ada
+  // Ringkasan modal berdasarkan transaksi & withdraw
   const summary = useMemo(() => {
     let totalModalKeluar = 0;
     let totalWithdrawAyah = 0;
@@ -65,19 +59,17 @@ export default function ModalPage() {
 
     try {
       setSaving(true);
-      await Promise.resolve(
-        addWithdrawal({
-          date,
-          amount: nominal,
-          notes,
-        })
-      );
+      await addWithdrawal({
+        date,
+        amount: nominal,
+        notes,
+      });
 
       setAmount("");
       setNotes("");
       setDate(new Date().toISOString().slice(0, 10));
 
-      alert("Withdraw tersimpan (lokal).");
+      alert("Withdraw tersimpan.");
     } catch (err) {
       console.error(err);
       alert(err.message || "Gagal menyimpan withdraw.");
@@ -87,40 +79,43 @@ export default function ModalPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header halaman */}
-      <div>
-        <h1 className="text-xl font-semibold text-slate-800">
-          Manajemen Modal & Withdraw
-        </h1>
-        <p className="text-sm text-slate-500">
-          Pantau total modal keluar, withdraw ayah, dan saldo hutang modal
-          sebelum pembagian laba periode.
-        </p>
+    <div className="space-y-8">
+      {/* Header dengan style yang sama seperti Dashboard */}
+      <div className="relative">
+        <div className="absolute -top-4 -left-4 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl" />
+        <div className="absolute -top-4 -right-4 w-32 h-32 bg-violet-200/30 rounded-full blur-3xl" />
+        <div className="relative">
+          <h1 className="text-3xl font-extrabold text-slate-800 mb-2">
+            Riwayat Saldo & Penarikan
+          </h1>
+          <p className="text-base text-slate-600">
+            Pantau total modal keluar, riwayat penarikan, saldo, dan hutang modal.
+          </p>
+        </div>
       </div>
 
       {/* STATUS MODAL */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Kartu status utama */}
-        <div className="md:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col justify-between">
+        <div className="md:col-span-1 bg-white rounded-3xl shadow-lg border border-slate-200/50 p-6 flex flex-col justify-between">
           <div>
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
-              Status Modal
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
+              Status Modal (All Time)
             </p>
             <p
-              className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+              className={`inline-flex items-center px-3 py-1.5 rounded-full text-[11px] font-semibold shadow-sm ${
                 isLunas
                   ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                   : "bg-rose-50 text-rose-700 border border-rose-100"
               }`}
             >
               {isLunas
-                ? "🟢 MODAL LUNAS — Boleh hitung & tarik laba periode"
-                : "🔴 SALDO HUTANG MODAL — Modal belum lunas"}
+                ? "🟢 MODAL LUNAS — boleh hitung & tarik laba periode"
+                : "🔴 SALDO HUTANG MODAL — modal belum lunas"}
             </p>
           </div>
 
-          <div className="mt-4 space-y-1 text-sm">
+          <div className="mt-5 space-y-2 text-sm">
             <Row
               label="Total Modal Keluar"
               value={formatRupiah(totalModalKeluar)}
@@ -134,8 +129,14 @@ export default function ModalPage() {
               value={formatRupiah(
                 saldoHutangModal > 0 ? saldoHutangModal : 0
               )}
+              highlight={!isLunas}
             />
           </div>
+
+          <p className="mt-5 text-[11px] text-slate-500 bg-slate-50 rounded-xl p-3 border border-slate-100">
+            💡 Rule: laba periode hanya boleh dibagi jika{" "}
+            <span className="font-semibold text-slate-700">saldo hutang modal = 0</span>.
+          </p>
         </div>
 
         {/* Kartu detail angka */}
@@ -164,7 +165,7 @@ export default function ModalPage() {
           />
           <SmallCard
             title="Status"
-            subtitle="Rule: laba periode hanya boleh dibagi jika modal lunas"
+            subtitle="Kontrol disiplin modal sebelum bagi laba"
             value={isLunas ? "Siap bagi laba" : "Belum boleh bagi laba"}
           />
         </div>
@@ -173,13 +174,13 @@ export default function ModalPage() {
       {/* FORM INPUT WITHDRAW + RIWAYAT */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* FORM INPUT WITHDRAW */}
-        <div className="xl:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
+        <div className="xl:col-span-1 bg-white rounded-3xl shadow-lg border border-slate-200/50 p-6 text-sm">
           <h2 className="text-base font-semibold text-slate-800 mb-1">
             Input Withdraw Ayah
           </h2>
           <p className="text-xs text-slate-500 mb-4">
-            Setiap withdraw dianggap pengembalian modal, bukan pengambilan
-            laba. Saldo hutang modal akan berkurang.
+            Setiap withdraw dianggap pengembalian modal, bukan pengambilan laba.
+            Saldo hutang modal akan berkurang.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -210,14 +211,13 @@ export default function ModalPage() {
                 className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
               <p className="text-[11px] text-slate-400">
-                Minimal Rp 1.000. Tidak ada batas maksimum di sistem, tapi
-                secara logika sebaiknya tidak melebihi saldo Shopee.
+                Minimal Rp 1.000. Secara logika sebaiknya tidak melebihi saldo Shopee/akun.
               </p>
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="font-medium text-slate-700 text-xs">
-                Catatan (optional)
+                Catatan (opsional)
               </label>
               <textarea
                 rows={3}
@@ -252,15 +252,14 @@ export default function ModalPage() {
         </div>
 
         {/* TABEL RIWAYAT WITHDRAW */}
-        <div className="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
+        <div className="xl:col-span-2 bg-white rounded-3xl shadow-lg border border-slate-200/50 p-6 text-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-base font-semibold text-slate-800">
                 Riwayat Withdraw Ayah
               </h2>
               <p className="text-xs text-slate-500">
-                Menampilkan semua withdraw yang sudah dicatat di sistem
-                (versi lokal).
+                Menampilkan semua withdraw yang sudah dicatat di sistem.
               </p>
             </div>
           </div>
@@ -313,18 +312,24 @@ export default function ModalPage() {
   );
 }
 
-function Row({ label, value }) {
+function Row({ label, value, highlight = false }) {
   return (
     <div className="flex items-center justify-between text-sm">
       <span className="text-slate-500">{label}</span>
-      <span className="font-semibold text-slate-900">{value}</span>
+      <span
+        className={`font-semibold ${
+          highlight ? "text-rose-600" : "text-slate-900"
+        }`}
+      >
+        {value}
+      </span>
     </div>
   );
 }
 
 function SmallCard({ title, subtitle, value, important = false }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col justify-between">
+    <div className="bg-white rounded-3xl shadow-lg border border-slate-200/50 p-5 flex flex-col justify-between">
       <div>
         <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
           {title}
@@ -338,7 +343,7 @@ function SmallCard({ title, subtitle, value, important = false }) {
         </p>
       </div>
       {subtitle && (
-        <p className="mt-1 text-[11px] text-slate-400">{subtitle}</p>
+        <p className="mt-2 text-[11px] text-slate-400">{subtitle}</p>
       )}
     </div>
   );

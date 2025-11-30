@@ -1,523 +1,415 @@
+// src/pages/ReportsPage.jsx
 import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
-import { PRODUCTS } from "../utils/constants.js";
-import {
-  calculateItemValues,
-  calculateShopeeFee,
-} from "../utils/calculations.js";
 import {
   formatRupiah,
   formatNumber,
   formatDate,
 } from "../utils/formatters.js";
-import { toast } from "react-hot-toast";
 
-const EMPTY_ITEM = {
-  productCode: "",
-  quantity: 1,
-};
+// Opsi range hari untuk filter laporan
+const RANGE_OPTIONS = [
+  { value: "1", label: "1 hari" },
+  { value: "2", label: "2 hari" },
+  { value: "3", label: "3 hari" },
+  { value: "7", label: "7 hari" },
+  { value: "30", label: "30 hari" },
+  { value: "60", label: "60 hari" },
+  { value: "180", label: "180 hari" },
+  { value: "360", label: "360 hari" },
+  { value: "all", label: "All time" },
+];
 
-export default function TransactionsPage() {
-  const { transactions, addTransaction, deleteTransaction, loading } =
-    useData();
+// Optimized table row components
+const ProductRow = ({ product, totalPenjualan }) => (
+  <tr className="border-b border-slate-100">
+    <td className="py-3 px-4">
+      <div>
+        <div className="font-medium text-slate-800">{product.name}</div>
+        <div className="text-xs text-slate-500">{product.code}</div>
+      </div>
+    </td>
+    <td className="py-3 px-4 text-right font-medium text-slate-900">
+      {formatNumber(product.totalQty)}
+    </td>
+    <td className="py-3 px-4 text-right font-medium text-slate-900">
+      {formatRupiah(product.totalPenjualan)}
+    </td>
+    <td className="py-3 px-4 text-right font-medium text-slate-900">
+      {formatRupiah(product.totalProfit)}
+    </td>
+    <td className="py-3 px-4 text-right font-medium text-slate-900">
+      {formatRupiah(product.totalBluePack)}
+    </td>
+    <td className="py-3 px-4 text-right font-medium text-slate-900">
+      {formatRupiah(product.totalCempaka)}
+    </td>
+    <td className="py-3 px-4 text-right font-medium text-slate-900">
+      {formatRupiah(product.avgProfitPerUnit)}
+    </td>
+    <td className="py-3 px-4 text-right">
+      <span className="text-xs font-medium text-slate-600">
+        {totalPenjualan > 0
+          ? (product.shareOfSales * 100).toFixed(1) + "%"
+          : "-"}
+      </span>
+    </td>
+  </tr>
+);
 
-  const [buyerUsername, setBuyerUsername] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [notes, setNotes] = useState("");
-  const [items, setItems] = useState([{ ...EMPTY_ITEM }]);
-  const [searchTerm, setSearchTerm] = useState("");
+const DailyRow = ({ daily }) => (
+  <tr className="border-b border-slate-100">
+    <td className="py-3 px-4 font-medium text-slate-800">
+      {formatDate(daily.date)}
+    </td>
+    <td className="py-3 px-4 text-right font-medium text-slate-900">
+      {formatRupiah(daily.totalPenjualan)}
+    </td>
+    <td className="py-3 px-4 text-right font-medium text-slate-900">
+      {formatRupiah(daily.totalProfit)}
+    </td>
+    <td className="py-3 px-4 text-right">
+      <span className="text-sm font-medium text-slate-700">
+        {formatNumber(daily.transaksiCount)}
+      </span>
+    </td>
+  </tr>
+);
 
-  const handleItemChange = (index, field, value) => {
-    setItems((prev) =>
-      prev.map((item, i) =>
-        i === index
-          ? {
-              ...item,
-              [field]: field === "quantity" ? Number(value) || 0 : value,
-            }
-          : item
-      )
+// Simple Stat component
+const SimpleStat = ({ label, value, helper }) => (
+  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
+      {label}
+    </p>
+    <p className="text-lg font-bold text-slate-900">
+      {value}
+    </p>
+    {helper && (
+      <p className="text-xs text-slate-500 mt-1">{helper}</p>
+    )}
+  </div>
+);
+
+// Section components
+const SummarySection = ({ summary, loading }) => {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
+        <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-indigo-600" />
+        <p className="text-sm text-slate-500 mt-3">Memuat data laporan…</p>
+      </div>
     );
-  };
-
-  const addEmptyItemRow = () => {
-    setItems((prev) => [...prev, { ...EMPTY_ITEM }]);
-  };
-
-  const removeItemRow = (index) => {
-    setItems((prev) =>
-      prev.length === 1 ? prev : prev.filter((_, i) => i !== index)
-    );
-  };
-
-  const previewItems = useMemo(() => {
-    const list = [];
-    for (const item of items) {
-      const product = PRODUCTS.find((p) => p.code === item.productCode);
-      if (!product || !item.quantity || item.quantity <= 0) continue;
-
-      const calc = calculateItemValues({
-        product,
-        quantity: item.quantity,
-      });
-      list.push({
-        ...calc,
-        productCode: product.code,
-        productName: product.name,
-      });
-    }
-    return list;
-  }, [items]);
-
-  const totalPreview = useMemo(() => {
-    let totalSell = 0;
-    let totalFee = 0;
-    let totalNet = 0;
-    let totalCost = 0;
-    let totalProfit = 0;
-
-    for (const it of previewItems) {
-      totalSell += it.totalSellPrice;
-      totalFee += it.shopeeDiscount;
-      totalNet += it.netIncome;
-      totalCost += it.totalCost;
-      totalProfit += it.profit;
-    }
-
-    return {
-      totalSell,
-      totalFee,
-      totalNet,
-      totalCost,
-      totalProfit,
-    };
-  }, [previewItems]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!buyerUsername.trim()) {
-      toast.error("Username pembeli wajib diisi.");
-      return;
-    }
-    if (!date) {
-      toast.error("Tanggal transaksi wajib diisi.");
-      return;
-    }
-    if (previewItems.length === 0) {
-      toast.error("Minimal harus ada 1 item dengan produk & quantity valid.");
-      return;
-    }
-
-    const groupId = `TRX_${date}_${Date.now()}`;
-    try {
-      for (const item of previewItems) {
-        const now = Date.now();
-        await addTransaction({
-          groupId,
-          buyerUsername: buyerUsername.trim(),
-          date,
-          timestamp: now,
-          productCode: item.productCode,
-          productName: item.productName,
-          productType: item.productType,
-          quantity: item.quantity,
-          actualQuantity: item.actualQuantity,
-          sellPrice: item.sellPrice,
-          totalSellPrice: item.totalSellPrice,
-          shopeeFeePercent: item.shopeeFeePercent,
-          shopeeDiscount: item.shopeeDiscount,
-          netIncome: item.netIncome,
-          costPrice: item.costPrice,
-          totalCost: item.totalCost,
-          profit: item.profit,
-          bluePack: item.bluePack,
-          cempakaPack: item.cempakaPack,
-          notes: notes.trim(),
-        });
-      }
-      toast.success("Transaksi berhasil disimpan (per item).");
-      setBuyerUsername("");
-      setDate(new Date().toISOString().slice(0, 10));
-      setNotes("");
-      setItems([{ ...EMPTY_ITEM }]);
-    } catch (err) {
-      console.error(err);
-      toast.error("Gagal menyimpan transaksi.");
-    }
-  };
-
-  const filteredTransactions = useMemo(() => {
-    const all = Array.isArray(transactions) ? transactions : [];
-    if (!searchTerm.trim()) return all;
-    const term = searchTerm.trim().toLowerCase();
-    return all.filter((t) =>
-      (t.buyerUsername || "").toLowerCase().includes(term)
-    );
-  }, [transactions, searchTerm]);
-
-  const sortedTransactions = useMemo(
-    () =>
-      [...filteredTransactions].sort(
-        (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
-      ),
-    [filteredTransactions]
-  );
-
-  const handleDelete = async (id) => {
-    if (!id) return;
-    const ok = window.confirm(
-      "Yakin ingin menghapus item transaksi ini? Aksi tidak bisa dibatalkan."
-    );
-    if (!ok) return;
-    try {
-      await deleteTransaction(id);
-      toast.success("Item transaksi berhasil dihapus.");
-    } catch (err) {
-      console.error(err);
-      toast.error("Gagal menghapus transaksi.");
-    }
-  };
+  }
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Header with gradient */}
-      <div className="relative">
-        <div className="absolute -top-4 -left-4 w-32 h-32 bg-blue-200/30 rounded-full blur-3xl" />
-        <div className="absolute -top-4 -right-4 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl" />
-        <div className="relative">
-          <h1 className="text-3xl font-extrabold text-slate-800 mb-2 flex items-center gap-0">
-            <span className="text-4xl"></span>
-            Kelola Transaksi
-          </h1>
-          <p className="text-base text-slate-600">
-            Input transaksi Shopee (bisa berisi beberapa item produk) dan lihat riwayat transaksi per item.
-          </p>
-        </div>
-      </div>
+    <div className="bg-white rounded-xl border border-slate-200 p-6">
+      <h2 className="text-lg font-semibold text-slate-800 mb-4">
+        Ringkasan Periode
+      </h2>
 
-      {/* FORM INPUT - Premium Card */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-gradient-to-br from-white to-blue-50/30 rounded-3xl shadow-xl border border-blue-100/50 p-8 space-y-6 hover:shadow-2xl transition-all duration-500"
-      >
-        {/* Header form */}
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Input Transaksi Baru</h2>
-            <p className="text-sm text-slate-600">Isi detail transaksi Shopee</p>
-          </div>
-        </div>
-
-        {/* Username & Date */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-bold text-slate-700 mb-2">
-              Username Pembeli (Shopee)
-            </label>
-            <input
-              type="text"
-              value={buyerUsername}
-              onChange={(e) => setBuyerUsername(e.target.value)}
-              placeholder="contoh: tokomakmur123"
-              className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white hover:border-slate-300"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">
-              Tanggal Transaksi
-            </label>
-            <input
-              type="date"
-              value={date}
-              max={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white hover:border-slate-300"
-            />
-          </div>
-        </div>
-
-        {/* TABEL ITEM */}
-        <div className="border-2 border-indigo-100 rounded-3xl p-6 bg-white/80 backdrop-blur-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-slate-800 flex items-center gap-0">
-              <span className="text-xl"></span>
-              Item Dalam Transaksi Ini
-            </h3>
-            <button
-              type="button"
-              onClick={addEmptyItemRow}
-              className="text-sm px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-semibold hover:from-indigo-600 hover:to-violet-600 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
-            >
-              + Tambah Item
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-slate-200">
-                  <th className="text-left py-3 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Produk
-                  </th>
-                  <th className="text-right py-3 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Qty
-                  </th>
-                  <th className="text-right py-3 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Total Jual
-                  </th>
-                  <th className="text-right py-3 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Modal
-                  </th>
-                  <th className="text-right py-3 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Laba
-                  </th>
-                  <th className="py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => {
-                  const product = PRODUCTS.find(
-                    (p) => p.code === item.productCode
-                  );
-                  const preview = product
-                    ? calculateItemValues({
-                        product,
-                        quantity: item.quantity || 0,
-                      })
-                    : null;
-
-                  return (
-                    <tr
-                      key={index}
-                      className="border-b border-slate-100 hover:bg-indigo-50/30 transition-colors"
-                    >
-                      <td className="py-3 pr-4">
-                        <select
-                          value={item.productCode}
-                          onChange={(e) =>
-                            handleItemChange(index, "productCode", e.target.value)
-                          }
-                          className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white hover:border-slate-300"
-                        >
-                          <option value="">Pilih produk…</option>
-                          {PRODUCTS.map((p) => (
-                            <option key={p.code} value={p.code}>
-                              {p.name} ({formatRupiah(p.sellPrice)})
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-3 pr-4 text-right">
-                        <input
-                          type="number"
-                          min={1}
-                          value={item.quantity}
-                          onChange={(e) =>
-                            handleItemChange(index, "quantity", e.target.value)
-                          }
-                          className="w-24 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-right focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white hover:border-slate-300"
-                        />
-                      </td>
-                      <td className="py-3 pr-4 text-right font-semibold text-slate-700">
-                        {preview ? formatRupiah(preview.totalSellPrice) : "-"}
-                      </td>
-                      <td className="py-3 pr-4 text-right font-semibold text-slate-700">
-                        {preview ? formatRupiah(preview.totalCost) : "-"}
-                      </td>
-                      <td className="py-3 pr-4 text-right font-bold text-indigo-600">
-                        {preview ? formatRupiah(preview.profit) : "-"}
-                      </td>
-                      <td className="py-3 pr-2 text-right">
-                        {items.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeItemRow(index)}
-                            className="text-sm text-rose-600 hover:text-rose-700 font-semibold hover:underline transition-colors"
-                          >
-                            Hapus
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Preview Total */}
-          <div className="flex flex-wrap gap-5 text-sm bg-gradient-to-r from-indigo-50 to-violet-50 rounded-2xl p-4 border border-indigo-100">
-            <PreviewBadge label="Total Jual" value={formatRupiah(totalPreview.totalSell)} />
-            <PreviewBadge label="Potongan Shopee" value={formatRupiah(totalPreview.totalFee)} />
-            <PreviewBadge label="Net Income" value={formatRupiah(totalPreview.totalNet)} />
-            <PreviewBadge label="Total Modal" value={formatRupiah(totalPreview.totalCost)} />
-            <PreviewBadge label="Laba Bersih" value={formatRupiah(totalPreview.totalProfit)} highlight />
-          </div>
-        </div>
-
-        {/* Notes */}
-        <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">
-            Catatan (opsional)
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all resize-y bg-white hover:border-slate-300"
-            placeholder="Misal: pesanan rutin, beli untuk reseller, dsb."
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <SimpleStat
+          label="Total Penjualan"
+          value={formatRupiah(summary.totalPenjualan)}
+          helper="Σ total harga jual"
+        />
+        <SimpleStat
+          label="Total Transaksi"
+          value={formatNumber(summary.totalTransaksi)}
+          helper="Jumlah item transaksi"
+        />
+        <SimpleStat
+          label="Potongan Shopee"
+          value={formatRupiah(summary.totalShopeeFee)}
+          helper="Approx. 17% + komponen lain"
+        />
+        <SimpleStat
+          label="Net Income"
+          value={formatRupiah(summary.totalNetIncome)}
+          helper="Penjualan - potongan"
+        />
+        <SimpleStat
+          label="Modal Keluar"
+          value={formatRupiah(summary.totalModal)}
+          helper="Σ totalCost"
+        />
+        <SimpleStat
+          label="Laba Bersih"
+          value={formatRupiah(summary.totalProfit)}
+          helper="Net income - modal"
+        />
+        <SimpleStat
+          label="Laba BluePack"
+          value={formatRupiah(summary.totalBluePack)}
+          helper="40% dari laba"
+        />
+        <SimpleStat
+          label="Laba CempakaPack"
+          value={formatRupiah(summary.totalCempaka)}
+          helper="60% dari laba"
+        />
+        <div className="sm:col-span-2 lg:col-span-1">
+          <SimpleStat
+            label="Rata-rata Laba/Transaksi"
+            value={formatRupiah(summary.avgProfitPerTx)}
+            helper="Laba per item transaksi"
           />
         </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-          <button
-            type="button"
-            onClick={() => {
-              setBuyerUsername("");
-              setDate(new Date().toISOString().slice(0, 10));
-              setNotes("");
-              setItems([{ ...EMPTY_ITEM }]);
-            }}
-            className="px-6 py-3 text-sm rounded-xl border-2 border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 hover:border-slate-400 transition-all"
-          >
-            Reset
-          </button>
-          <button
-            type="submit"
-            className="px-8 py-3 text-sm rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold hover:from-indigo-700 hover:to-violet-700 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
-          >
-            Simpan Transaksi
-          </button>
-        </div>
-      </form>
-
-      {/* RIWAYAT TRANSAKSI */}
-      <div className="bg-white rounded-3xl shadow-xl border border-slate-200/50 p-8 hover:shadow-2xl transition-all duration-500">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 pb-5 border-b border-slate-200">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-1">
-              Riwayat Transaksi
-            </h2>
-            <p className="text-sm text-slate-600">
-              Setiap baris adalah 1 item produk dalam transaksi Shopee.
-            </p>
-          </div>
-          <div className="relative">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="🔍 Cari username…"
-              className="border-2 border-slate-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all w-full md:w-64 bg-white hover:border-slate-300"
-            />
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mb-4" />
-            <p className="text-sm text-slate-600">Memuat data…</p>
-          </div>
-        ) : sortedTransactions.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-6xl mb-4">📦</div>
-            <p className="text-lg font-semibold text-slate-700 mb-2">
-              Belum ada transaksi yang tercatat
-            </p>
-            <p className="text-sm text-slate-500">
-              Input transaksi pertama menggunakan form di atas
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-slate-200">
-                  <th className="text-left py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Tanggal
-                  </th>
-                  <th className="text-left py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Username
-                  </th>
-                  <th className="text-left py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Produk
-                  </th>
-                  <th className="text-right py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Qty
-                  </th>
-                  <th className="text-right py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Total Jual
-                  </th>
-                  <th className="text-right py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Modal
-                  </th>
-                  <th className="text-right py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Laba
-                  </th>
-                  <th className="text-right py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedTransactions.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="border-b border-slate-100 hover:bg-indigo-50/30 transition-colors group"
-                  >
-                    <td className="py-4 pr-4 whitespace-nowrap font-medium text-slate-700">
-                      {formatDate(t.date)}
-                    </td>
-                    <td className="py-4 pr-4 whitespace-nowrap font-semibold text-slate-800">
-                      {t.buyerUsername}
-                    </td>
-                    <td className="py-4 pr-4 whitespace-nowrap text-slate-700">
-                      {t.productName}
-                    </td>
-                    <td className="py-4 pr-4 text-right font-semibold text-slate-700">
-                      {formatNumber(t.quantity)}
-                    </td>
-                    <td className="py-4 pr-4 text-right font-semibold text-slate-800">
-                      {formatRupiah(t.totalSellPrice)}
-                    </td>
-                    <td className="py-4 pr-4 text-right font-semibold text-slate-700">
-                      {formatRupiah(t.totalCost)}
-                    </td>
-                    <td className="py-4 pr-4 text-right font-bold text-indigo-600">
-                      {formatRupiah(t.profit)}
-                    </td>
-                    <td className="py-4 pr-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(t.id)}
-                        className="text-sm text-rose-600 hover:text-rose-700 font-semibold opacity-0 group-hover:opacity-100 transition-all hover:underline"
-                      >
-                        Hapus
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   );
-}
+};
 
-function PreviewBadge({ label, value, highlight = false }) {
+const ProductAnalysisSection = ({ productStats, totalPenjualan, loading }) => (
+  <div className="bg-white rounded-xl border border-slate-200 p-6">
+    <h2 className="text-lg font-semibold text-slate-800 mb-4">
+      Analisis Per Produk
+    </h2>
+
+    {loading ? (
+      <div className="text-center py-8">
+        <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-indigo-600" />
+        <p className="text-sm text-slate-500 mt-3">Memuat data produk…</p>
+      </div>
+    ) : productStats.length === 0 ? (
+      <div className="text-center py-8 text-slate-500">
+        Belum ada transaksi dalam rentang waktu ini.
+      </div>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-slate-600 border-b border-slate-200">
+              <th className="py-3 px-4 font-semibold">Produk</th>
+              <th className="py-3 px-4 font-semibold text-right">Qty</th>
+              <th className="py-3 px-4 font-semibold text-right">Penjualan</th>
+              <th className="py-3 px-4 font-semibold text-right">Laba</th>
+              <th className="py-3 px-4 font-semibold text-right">BluePack</th>
+              <th className="py-3 px-4 font-semibold text-right">Cempaka</th>
+              <th className="py-3 px-4 font-semibold text-right">Laba/Unit</th>
+              <th className="py-3 px-4 font-semibold text-right">%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productStats.map((product) => (
+              <ProductRow
+                key={product.code}
+                product={product}
+                totalPenjualan={totalPenjualan}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+);
+
+const DailySummarySection = ({ dailyStats, loading }) => (
+  <div className="bg-white rounded-xl border border-slate-200 p-6">
+    <h2 className="text-lg font-semibold text-slate-800 mb-4">
+      Ringkasan Harian
+    </h2>
+
+    {loading ? (
+      <div className="text-center py-8">
+        <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-indigo-600" />
+        <p className="text-sm text-slate-500 mt-3">Memuat data harian…</p>
+      </div>
+    ) : dailyStats.length === 0 ? (
+      <div className="text-center py-8 text-slate-500">
+        Belum ada transaksi dalam rentang waktu ini.
+      </div>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-slate-600 border-b border-slate-200">
+              <th className="py-3 px-4 font-semibold">Tanggal</th>
+              <th className="py-3 px-4 font-semibold text-right">Total Penjualan</th>
+              <th className="py-3 px-4 font-semibold text-right">Total Laba</th>
+              <th className="py-3 px-4 font-semibold text-right">Transaksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dailyStats.map((daily) => (
+              <DailyRow key={daily.date} daily={daily} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+);
+
+export default function ReportsPage() {
+  const { transactions, loading } = useData();
+  const [rangeDays, setRangeDays] = useState("30");
+
+  const reportData = useMemo(() => {
+    const txAll = Array.isArray(transactions) ? transactions : [];
+
+    let filteredTx = txAll;
+    if (rangeDays !== "all") {
+      const days = Number(rangeDays);
+      const cutoffDate = new Date();
+      cutoffDate.setHours(0, 0, 0, 0);
+      cutoffDate.setDate(cutoffDate.getDate() - (days - 1));
+      const cutoffMs = cutoffDate.getTime();
+
+      filteredTx = txAll.filter((t) => {
+        if (!t.date) return true;
+        const txDate = new Date(t.date + "T00:00:00");
+        return txDate.getTime() >= cutoffMs;
+      });
+    }
+
+    let totalPenjualan = 0;
+    let totalTransaksi = 0;
+    let totalShopeeFee = 0;
+    let totalNetIncome = 0;
+    let totalModal = 0;
+    let totalProfit = 0;
+    let totalBluePack = 0;
+    let totalCempaka = 0;
+
+    for (const t of filteredTx) {
+      const sell = t.totalSellPrice || 0;
+      const cost = t.totalCost || 0;
+      const profit = t.profit ?? (t.bluePack || 0) + (t.cempakaPack || 0);
+      const feePercent = typeof t.shopeeFeePercent === "number" ? t.shopeeFeePercent : 0.17;
+      const fee = t.shopeeDiscount ?? sell * feePercent;
+      const netIncome = t.netIncome ?? sell - (t.shopeeDiscount ?? sell * feePercent);
+
+      totalPenjualan += sell;
+      totalTransaksi += 1;
+      totalShopeeFee += fee;
+      totalNetIncome += netIncome;
+      totalModal += cost;
+      totalProfit += profit;
+      totalBluePack += t.bluePack ?? profit * 0.4;
+      totalCempaka += t.cempakaPack ?? profit * 0.6;
+    }
+
+    const avgProfitPerTx = totalTransaksi > 0 ? totalProfit / totalTransaksi : 0;
+
+    const productMap = new Map();
+    for (const t of filteredTx) {
+      const key = t.productCode || t.productName || "UNKNOWN";
+      const sell = t.totalSellPrice || 0;
+      const qty = t.quantity || 0;
+      const profit = t.profit ?? (t.bluePack || 0) + (t.cempakaPack || 0);
+      const blue = t.bluePack ?? profit * 0.4;
+      const cemp = t.cempakaPack ?? profit * 0.6;
+
+      const existing = productMap.get(key) || {
+        code: t.productCode || "-",
+        name: t.productName || "Produk Tidak Dikenal",
+        totalQty: 0,
+        totalPenjualan: 0,
+        totalProfit: 0,
+        totalBluePack: 0,
+        totalCempaka: 0,
+        transaksiCount: 0,
+      };
+
+      existing.totalQty += qty;
+      existing.totalPenjualan += sell;
+      existing.totalProfit += profit;
+      existing.totalBluePack += blue;
+      existing.totalCempaka += cemp;
+      existing.transaksiCount += 1;
+      productMap.set(key, existing);
+    }
+
+    const productStats = Array.from(productMap.values()).map((p) => ({
+      ...p,
+      avgProfitPerUnit: p.totalQty > 0 ? p.totalProfit / p.totalQty : 0,
+      shareOfSales: totalPenjualan > 0 ? p.totalPenjualan / totalPenjualan : 0,
+    }));
+
+    productStats.sort((a, b) => b.totalPenjualan - a.totalPenjualan);
+
+    const dailyMap = new Map();
+    for (const t of filteredTx) {
+      const dateKey = t.date || new Date(t.timestamp).toISOString().slice(0, 10);
+      const sell = t.totalSellPrice || 0;
+      const profit = t.profit ?? (t.bluePack || 0) + (t.cempakaPack || 0);
+
+      const existing = dailyMap.get(dateKey) || {
+        date: dateKey,
+        totalPenjualan: 0,
+        totalProfit: 0,
+        transaksiCount: 0,
+      };
+
+      existing.totalPenjualan += sell;
+      existing.totalProfit += profit;
+      existing.transaksiCount += 1;
+      dailyMap.set(dateKey, existing);
+    }
+
+    const dailyStats = Array.from(dailyMap.values()).sort(
+      (a, b) => new Date(a.date) - new Date(b.date)
+    );
+
+    return {
+      summary: {
+        totalPenjualan,
+        totalTransaksi,
+        totalShopeeFee,
+        totalNetIncome,
+        totalModal,
+        totalProfit,
+        totalBluePack,
+        totalCempaka,
+        avgProfitPerTx,
+      },
+      productStats,
+      dailyStats,
+    };
+  }, [transactions, rangeDays]);
+
+  const { summary, productStats, dailyStats } = reportData;
+
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-slate-600 font-medium">{label}:</span>
-      <span
-        className={`font-bold ${
-          highlight ? "text-indigo-600 text-lg" : "text-slate-800"
-        }`}
-      >
-        {value}
-      </span>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">
+            Laporan & Analisis
+          </h1>
+          <p className="text-sm text-slate-600">
+            Ringkasan performa penjualan, laba, dan produk terlaris berdasarkan rentang waktu.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
+            Rentang Laporan:
+          </span>
+          <select
+            value={rangeDays}
+            onChange={(e) => setRangeDays(e.target.value)}
+            className="border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition-colors"
+          >
+            {RANGE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <SummarySection summary={summary} loading={loading} />
+      <ProductAnalysisSection
+        productStats={productStats}
+        totalPenjualan={summary.totalPenjualan}
+        loading={loading}
+      />
+      <DailySummarySection dailyStats={dailyStats} loading={loading} />
     </div>
   );
 }

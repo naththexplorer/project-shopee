@@ -184,28 +184,27 @@ export default function ReportsPage() {
   }, [transactions, rangeDays]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fadeIn">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">
             Laporan & Analisis
           </h1>
-          <p className="text-sm text-slate-500">
-            Ringkasan performa penjualan, laba, dan produk terlaris berdasarkan
-            rentang waktu yang kamu pilih.
+          <p className="text-sm text-slate-600">
+            Ringkasan performa penjualan, laba, dan produk terlaris berdasarkan rentang waktu.
           </p>
         </div>
 
         {/* Filter rentang waktu */}
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-500 whitespace-nowrap">
-            Rentang laporan:
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
+            Rentang Laporan:
           </span>
           <select
             value={rangeDays}
             onChange={(e) => setRangeDays(e.target.value)}
-            className="border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition-colors"
           >
             {RANGE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -238,8 +237,9 @@ export default function ReportsPage() {
 function SummarySection({ summary, loading }) {
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
-        <p className="text-xs text-slate-500">Memuat data laporan…</p>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 text-center">
+        <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-indigo-600" />
+        <p className="text-sm text-slate-500 mt-3">Memuat data laporan…</p>
       </div>
     );
   }
@@ -257,61 +257,59 @@ function SummarySection({ summary, loading }) {
   } = summary;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <h2 className="text-base font-semibold text-slate-800 mb-1">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 className="text-lg font-semibold text-slate-800 mb-4">
         Ringkasan Periode
       </h2>
-      <p className="text-xs text-slate-500 mb-4">
-        Semua angka di bawah ini hanya berdasarkan transaksi yang masuk dalam
-        rentang waktu yang dipilih.
-      </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-        <MiniStat
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <SimpleStat
           label="Total Penjualan"
           value={formatRupiah(totalPenjualan)}
           helper="Σ total harga jual"
         />
-        <MiniStat
-          label="Total Transaksi (Item)"
+        <SimpleStat
+          label="Total Transaksi"
           value={formatNumber(totalTransaksi)}
-          helper="Setiap baris item = 1 transaksi"
+          helper="Jumlah item transaksi"
         />
-        <MiniStat
-          label="Total Potongan Shopee"
+        <SimpleStat
+          label="Potongan Shopee"
           value={formatRupiah(totalShopeeFee)}
           helper="Approx. 17% + komponen lain"
         />
-        <MiniStat
-          label="Total Net Income"
+        <SimpleStat
+          label="Net Income"
           value={formatRupiah(totalNetIncome)}
-          helper="Penjualan - potongan Shopee"
+          helper="Penjualan - potongan"
         />
-        <MiniStat
-          label="Total Modal Keluar"
+        <SimpleStat
+          label="Modal Keluar"
           value={formatRupiah(totalModal)}
           helper="Σ totalCost"
         />
-        <MiniStat
-          label="Total Laba Bersih"
+        <SimpleStat
+          label="Laba Bersih"
           value={formatRupiah(totalProfit)}
           helper="Net income - modal"
         />
-        <MiniStat
-          label="Laba BluePack (40%)"
+        <SimpleStat
+          label="Laba BluePack"
           value={formatRupiah(totalBluePack)}
-          helper=""
+          helper="40% dari laba"
         />
-        <MiniStat
-          label="Laba CempakaPack (60%)"
+        <SimpleStat
+          label="Laba CempakaPack"
           value={formatRupiah(totalCempaka)}
-          helper=""
+          helper="60% dari laba"
         />
-        <MiniStat
-          label="Rata-rata Laba/Transaksi"
-          value={formatRupiah(avgProfitPerTx)}
-          helper="Laba bersih / item transaksi"
-        />
+        <div className="sm:col-span-2 lg:col-span-1">
+          <SimpleStat
+            label="Rata-rata Laba/Transaksi"
+            value={formatRupiah(avgProfitPerTx)}
+            helper="Laba per item transaksi"
+          />
+        </div>
       </div>
     </div>
   );
@@ -320,78 +318,71 @@ function SummarySection({ summary, loading }) {
 // Tabel analisis per produk
 function ProductAnalysisSection({ productStats, totalPenjualan, loading }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-base font-semibold text-slate-800">
-            Analisis Per Produk
-          </h2>
-          <p className="text-xs text-slate-500">
-            Performansi tiap produk dalam periode yang dipilih: quantity,
-            penjualan, laba, dan kontribusi terhadap total penjualan.
-          </p>
-        </div>
-      </div>
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 className="text-lg font-semibold text-slate-800 mb-4">
+        Analisis Per Produk
+      </h2>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Memuat data produk…</p>
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-indigo-600" />
+          <p className="text-sm text-slate-500 mt-3">Memuat data produk…</p>
+        </div>
       ) : productStats.length === 0 ? (
-        <p className="text-xs text-slate-500">
+        <div className="text-center py-8 text-slate-500">
           Belum ada transaksi dalam rentang waktu ini.
-        </p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full text-xs">
+          <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-[11px] uppercase text-slate-400 border-b border-slate-100">
-                <th className="py-2 pr-4">Produk</th>
-                <th className="py-2 pr-4 text-right">Qty</th>
-                <th className="py-2 pr-4 text-right">Penjualan</th>
-                <th className="py-2 pr-4 text-right">Laba</th>
-                <th className="py-2 pr-4 text-right">BluePack</th>
-                <th className="py-2 pr-4 text-right">Cempaka</th>
-                <th className="py-2 pr-4 text-right">Laba/Unit</th>
-                <th className="py-2 pr-4 text-right">% Penjualan</th>
+              <tr className="text-left text-xs text-slate-600 border-b border-slate-200">
+                <th className="py-3 px-4 font-semibold">Produk</th>
+                <th className="py-3 px-4 font-semibold text-right">Qty</th>
+                <th className="py-3 px-4 font-semibold text-right">Penjualan</th>
+                <th className="py-3 px-4 font-semibold text-right">Laba</th>
+                <th className="py-3 px-4 font-semibold text-right">BluePack</th>
+                <th className="py-3 px-4 font-semibold text-right">Cempaka</th>
+                <th className="py-3 px-4 font-semibold text-right">Laba/Unit</th>
+                <th className="py-3 px-4 font-semibold text-right">%</th>
               </tr>
             </thead>
             <tbody>
               {productStats.map((p) => (
                 <tr
                   key={p.code}
-                  className="border-b border-slate-50 hover:bg-slate-50/60"
+                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                 >
-                  <td className="py-2 pr-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-slate-800">
-                        {p.name}
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        {p.code}
-                      </span>
+                  <td className="py-3 px-4">
+                    <div>
+                      <div className="font-medium text-slate-800">{p.name}</div>
+                      <div className="text-xs text-slate-500">{p.code}</div>
                     </div>
                   </td>
-                  <td className="py-2 pr-4 text-right">
+                  <td className="py-3 px-4 text-right font-medium text-slate-900">
                     {formatNumber(p.totalQty)}
                   </td>
-                  <td className="py-2 pr-4 text-right">
+                  <td className="py-3 px-4 text-right font-medium text-slate-900">
                     {formatRupiah(p.totalPenjualan)}
                   </td>
-                  <td className="py-2 pr-4 text-right">
+                  <td className="py-3 px-4 text-right font-medium text-slate-900">
                     {formatRupiah(p.totalProfit)}
                   </td>
-                  <td className="py-2 pr-4 text-right">
+                  <td className="py-3 px-4 text-right font-medium text-slate-900">
                     {formatRupiah(p.totalBluePack)}
                   </td>
-                  <td className="py-2 pr-4 text-right">
+                  <td className="py-3 px-4 text-right font-medium text-slate-900">
                     {formatRupiah(p.totalCempaka)}
                   </td>
-                  <td className="py-2 pr-4 text-right">
+                  <td className="py-3 px-4 text-right font-medium text-slate-900">
                     {formatRupiah(p.avgProfitPerUnit)}
                   </td>
-                  <td className="py-2 pr-4 text-right">
-                    {totalPenjualan > 0
-                      ? (p.shareOfSales * 100).toFixed(1) + "%"
-                      : "-"}
+                  <td className="py-3 px-4 text-right">
+                    <span className="text-xs font-medium text-slate-600">
+                      {totalPenjualan > 0
+                        ? (p.shareOfSales * 100).toFixed(1) + "%"
+                        : "-"}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -406,52 +397,50 @@ function ProductAnalysisSection({ productStats, totalPenjualan, loading }) {
 // Tabel ringkasan harian
 function DailySummarySection({ dailyStats, loading }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-base font-semibold text-slate-800">
-            Ringkasan Harian
-          </h2>
-          <p className="text-xs text-slate-500">
-            Rekap penjualan dan laba per hari dalam periode yang dipilih.
-          </p>
-        </div>
-      </div>
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 className="text-lg font-semibold text-slate-800 mb-4">
+        Ringkasan Harian
+      </h2>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Memuat data harian…</p>
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-indigo-600" />
+          <p className="text-sm text-slate-500 mt-3">Memuat data harian…</p>
+        </div>
       ) : dailyStats.length === 0 ? (
-        <p className="text-xs text-slate-500">
+        <div className="text-center py-8 text-slate-500">
           Belum ada transaksi dalam rentang waktu ini.
-        </p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full text-xs">
+          <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-[11px] uppercase text-slate-400 border-b border-slate-100">
-                <th className="py-2 pr-4">Tanggal</th>
-                <th className="py-2 pr-4 text-right">Total Penjualan</th>
-                <th className="py-2 pr-4 text-right">Total Laba</th>
-                <th className="py-2 pr-4 text-right">Jumlah Transaksi</th>
+              <tr className="text-left text-xs text-slate-600 border-b border-slate-200">
+                <th className="py-3 px-4 font-semibold">Tanggal</th>
+                <th className="py-3 px-4 font-semibold text-right">Total Penjualan</th>
+                <th className="py-3 px-4 font-semibold text-right">Total Laba</th>
+                <th className="py-3 px-4 font-semibold text-right">Transaksi</th>
               </tr>
             </thead>
             <tbody>
               {dailyStats.map((d) => (
                 <tr
                   key={d.date}
-                  className="border-b border-slate-50 hover:bg-slate-50/60"
+                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                 >
-                  <td className="py-2 pr-4 whitespace-nowrap">
+                  <td className="py-3 px-4 font-medium text-slate-800">
                     {formatDate(d.date)}
                   </td>
-                  <td className="py-2 pr-4 text-right">
+                  <td className="py-3 px-4 text-right font-medium text-slate-900">
                     {formatRupiah(d.totalPenjualan)}
                   </td>
-                  <td className="py-2 pr-4 text-right">
+                  <td className="py-3 px-4 text-right font-medium text-slate-900">
                     {formatRupiah(d.totalProfit)}
                   </td>
-                  <td className="py-2 pr-4 text-right">
-                    {formatNumber(d.transaksiCount)}
+                  <td className="py-3 px-4 text-right">
+                    <span className="text-sm font-medium text-slate-700">
+                      {formatNumber(d.transaksiCount)}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -463,18 +452,18 @@ function DailySummarySection({ dailyStats, loading }) {
   );
 }
 
-// Komponen kartu kecil
-function MiniStat({ label, value, helper }) {
+// Simple Stat component
+function SimpleStat({ label, value, helper }) {
   return (
-    <div className="bg-slate-50 rounded-2xl px-4 py-3">
-      <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
         {label}
       </p>
-      <p className="mt-1 text-lg font-semibold text-slate-900">
+      <p className="text-lg font-bold text-slate-900">
         {value}
       </p>
       {helper && (
-        <p className="mt-1 text-[11px] text-slate-400">{helper}</p>
+        <p className="text-xs text-slate-500 mt-1">{helper}</p>
       )}
     </div>
   );
