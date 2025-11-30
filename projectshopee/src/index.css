@@ -1,8 +1,6 @@
-/* src/index.css */
-/* Global styles + bootstrap Tailwind, buat dasar layout dashboard */
-
 @import "tailwindcss";
 
+/* Global HTML & Body */
 html,
 body {
   height: 100%;
@@ -10,24 +8,69 @@ body {
 
 body {
   margin: 0;
-  font-size: 16px; /* 👉 naikin base font biar nggak terlalu kecil */
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter",
-    "Segoe UI", sans-serif;
-  background-color: #f9fafb;
+  font-size: 16px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI",
+    sans-serif;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e0e7ff 100%);
   color: #020617;
+  overflow-x: hidden;
 }
 
+/* Root container */
 #root {
   min-height: 100vh;
 }
 
-/* Scrollbar tipis biar lebih clean */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #cbd5f5;
-  border-radius: 9999px;
+  background: linear-gradient(180deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #4f46e5 0%, #7c3aed 100%);
+}
+
+/* Smooth transitions */
+* {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Premium focus states */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1),
+    0 4px 16px rgba(99, 102, 241, 0.15) !important;
+}
+
+/* Button interactions */
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0);
 }

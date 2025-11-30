@@ -1,9 +1,3 @@
-// src/pages/TransactionsPage.jsx
-// Halaman input transaksi (multi-item per transaksi Shopee) + riwayat per item.
-// Di bawah ada tabel riwayat dengan fitur:
-// - search by username (case-insensitive, substring)
-// - delete transaksi per item (memanggil deleteTransaction dari DataContext)
-
 import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
 import { PRODUCTS } from "../utils/constants.js";
@@ -27,18 +21,11 @@ export default function TransactionsPage() {
   const { transactions, addTransaction, deleteTransaction, loading } =
     useData();
 
-  // Form state untuk 1 transaksi Shopee (bisa berisi banyak item)
   const [buyerUsername, setBuyerUsername] = useState("");
-  const [date, setDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
-  );
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const [items, setItems] = useState([ { ...EMPTY_ITEM } ]);
-
-  // Pencarian di riwayat
+  const [items, setItems] = useState([{ ...EMPTY_ITEM }]);
   const [searchTerm, setSearchTerm] = useState("");
-
-  // ====== HANDLER FORM INPUT TRANSAKSI ======
 
   const handleItemChange = (index, field, value) => {
     setItems((prev) =>
@@ -46,8 +33,7 @@ export default function TransactionsPage() {
         i === index
           ? {
               ...item,
-              [field]:
-                field === "quantity" ? Number(value) || 0 : value,
+              [field]: field === "quantity" ? Number(value) || 0 : value,
             }
           : item
       )
@@ -64,28 +50,22 @@ export default function TransactionsPage() {
     );
   };
 
-  // Hitung preview transaksi dari form (tidak disimpan ke state global)
   const previewItems = useMemo(() => {
     const list = [];
-
     for (const item of items) {
-      const product = PRODUCTS.find(
-        (p) => p.code === item.productCode
-      );
+      const product = PRODUCTS.find((p) => p.code === item.productCode);
       if (!product || !item.quantity || item.quantity <= 0) continue;
 
       const calc = calculateItemValues({
         product,
         quantity: item.quantity,
       });
-
       list.push({
         ...calc,
         productCode: product.code,
         productName: product.name,
       });
     }
-
     return list;
   }, [items]);
 
@@ -115,7 +95,6 @@ export default function TransactionsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!buyerUsername.trim()) {
       toast.error("Username pembeli wajib diisi.");
       return;
@@ -129,44 +108,34 @@ export default function TransactionsPage() {
       return;
     }
 
-    // groupId untuk mengelompokkan beberapa item dalam 1 transaksi Shopee
     const groupId = `TRX_${date}_${Date.now()}`;
-
     try {
       for (const item of previewItems) {
         const now = Date.now();
-
         await addTransaction({
           groupId,
           buyerUsername: buyerUsername.trim(),
           date,
           timestamp: now,
-
           productCode: item.productCode,
           productName: item.productName,
           productType: item.productType,
           quantity: item.quantity,
           actualQuantity: item.actualQuantity,
-
           sellPrice: item.sellPrice,
           totalSellPrice: item.totalSellPrice,
           shopeeFeePercent: item.shopeeFeePercent,
           shopeeDiscount: item.shopeeDiscount,
           netIncome: item.netIncome,
-
           costPrice: item.costPrice,
           totalCost: item.totalCost,
-
           profit: item.profit,
           bluePack: item.bluePack,
           cempakaPack: item.cempakaPack,
-
           notes: notes.trim(),
         });
       }
-
       toast.success("Transaksi berhasil disimpan (per item).");
-      // Reset form
       setBuyerUsername("");
       setDate(new Date().toISOString().slice(0, 10));
       setNotes("");
@@ -177,20 +146,15 @@ export default function TransactionsPage() {
     }
   };
 
-  // ====== FILTER RIWAYAT BERDASARKAN SEARCH USERNAME ======
-
   const filteredTransactions = useMemo(() => {
     const all = Array.isArray(transactions) ? transactions : [];
-
     if (!searchTerm.trim()) return all;
-
     const term = searchTerm.trim().toLowerCase();
     return all.filter((t) =>
       (t.buyerUsername || "").toLowerCase().includes(term)
     );
   }, [transactions, searchTerm]);
 
-  // sorted terbaru di atas
   const sortedTransactions = useMemo(
     () =>
       [...filteredTransactions].sort(
@@ -199,15 +163,12 @@ export default function TransactionsPage() {
     [filteredTransactions]
   );
 
-  // Handler hapus per item
   const handleDelete = async (id) => {
     if (!id) return;
-
     const ok = window.confirm(
       "Yakin ingin menghapus item transaksi ini? Aksi tidak bisa dibatalkan."
     );
     if (!ok) return;
-
     try {
       await deleteTransaction(id);
       toast.success("Item transaksi berhasil dihapus.");
@@ -218,26 +179,39 @@ export default function TransactionsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div>
-        <h1 className="text-xl font-semibold text-slate-800">
-          Transaksi
-        </h1>
-        <p className="text-sm text-slate-500">
-          Input transaksi Shopee (bisa berisi beberapa item produk) dan
-          lihat riwayat transaksi per item.
-        </p>
+    <div className="space-y-8 animate-fadeIn">
+      {/* Header with gradient */}
+      <div className="relative">
+        <div className="absolute -top-4 -left-4 w-32 h-32 bg-blue-200/30 rounded-full blur-3xl" />
+        <div className="absolute -top-4 -right-4 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl" />
+        <div className="relative">
+          <h1 className="text-3xl font-extrabold text-slate-800 mb-2 flex items-center gap-0">
+            <span className="text-4xl"></span>
+            Kelola Transaksi
+          </h1>
+          <p className="text-base text-slate-600">
+            Input transaksi Shopee (bisa berisi beberapa item produk) dan lihat riwayat transaksi per item.
+          </p>
+        </div>
       </div>
 
-      {/* FORM INPUT TRANSAKSI */}
+      {/* FORM INPUT - Premium Card */}
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-4"
+        className="bg-gradient-to-br from-white to-blue-50/30 rounded-3xl shadow-xl border border-blue-100/50 p-8 space-y-6 hover:shadow-2xl transition-all duration-500"
       >
-        <div className="flex flex-col md:flex-row md:items-center md:gap-6 gap-4">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+        {/* Header form */}
+        <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">Input Transaksi Baru</h2>
+            <p className="text-sm text-slate-600">Isi detail transaksi Shopee</p>
+          </div>
+        </div>
+
+        {/* Username & Date */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-bold text-slate-700 mb-2">
               Username Pembeli (Shopee)
             </label>
             <input
@@ -245,11 +219,11 @@ export default function TransactionsPage() {
               value={buyerUsername}
               onChange={(e) => setBuyerUsername(e.target.value)}
               placeholder="contoh: tokomakmur123"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white hover:border-slate-300"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-sm font-bold text-slate-700 mb-2">
               Tanggal Transaksi
             </label>
             <input
@@ -257,36 +231,47 @@ export default function TransactionsPage() {
               value={date}
               max={new Date().toISOString().slice(0, 10)}
               onChange={(e) => setDate(e.target.value)}
-              className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white hover:border-slate-300"
             />
           </div>
         </div>
 
-        {/* TABEL ITEM DALAM 1 TRANSAKSI */}
-        <div className="border border-slate-100 rounded-2xl p-3 space-y-2 bg-slate-50/60">
+        {/* TABEL ITEM */}
+        <div className="border-2 border-indigo-100 rounded-3xl p-6 bg-white/80 backdrop-blur-sm space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-slate-600">
+            <h3 className="text-base font-bold text-slate-800 flex items-center gap-0">
+              <span className="text-xl"></span>
               Item Dalam Transaksi Ini
-            </h2>
+            </h3>
             <button
               type="button"
               onClick={addEmptyItemRow}
-              className="text-[11px] px-2 py-1 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+              className="text-sm px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-semibold hover:from-indigo-600 hover:to-violet-600 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
             >
               + Tambah Item
             </button>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full text-xs">
+            <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left text-[11px] uppercase text-slate-400 border-b border-slate-200">
-                  <th className="py-2 pr-4">Produk</th>
-                  <th className="py-2 pr-4 text-right">Qty</th>
-                  <th className="py-2 pr-4 text-right">Total Jual</th>
-                  <th className="py-2 pr-4 text-right">Modal</th>
-                  <th className="py-2 pr-4 text-right">Laba</th>
-                  <th className="py-2 pr-4"></th>
+                <tr className="border-b-2 border-slate-200">
+                  <th className="text-left py-3 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Produk
+                  </th>
+                  <th className="text-right py-3 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Qty
+                  </th>
+                  <th className="text-right py-3 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Total Jual
+                  </th>
+                  <th className="text-right py-3 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Modal
+                  </th>
+                  <th className="text-right py-3 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Laba
+                  </th>
+                  <th className="py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -304,19 +289,15 @@ export default function TransactionsPage() {
                   return (
                     <tr
                       key={index}
-                      className="border-b border-slate-100"
+                      className="border-b border-slate-100 hover:bg-indigo-50/30 transition-colors"
                     >
-                      <td className="py-2 pr-4">
+                      <td className="py-3 pr-4">
                         <select
                           value={item.productCode}
                           onChange={(e) =>
-                            handleItemChange(
-                              index,
-                              "productCode",
-                              e.target.value
-                            )
+                            handleItemChange(index, "productCode", e.target.value)
                           }
-                          className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white hover:border-slate-300"
                         >
                           <option value="">Pilih produk…</option>
                           {PRODUCTS.map((p) => (
@@ -326,42 +307,32 @@ export default function TransactionsPage() {
                           ))}
                         </select>
                       </td>
-                      <td className="py-2 pr-4 text-right">
+                      <td className="py-3 pr-4 text-right">
                         <input
                           type="number"
                           min={1}
                           value={item.quantity}
                           onChange={(e) =>
-                            handleItemChange(
-                              index,
-                              "quantity",
-                              e.target.value
-                            )
+                            handleItemChange(index, "quantity", e.target.value)
                           }
-                          className="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-right focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-24 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-right focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white hover:border-slate-300"
                         />
                       </td>
-                      <td className="py-2 pr-4 text-right">
-                        {preview
-                          ? formatRupiah(preview.totalSellPrice)
-                          : "-"}
+                      <td className="py-3 pr-4 text-right font-semibold text-slate-700">
+                        {preview ? formatRupiah(preview.totalSellPrice) : "-"}
                       </td>
-                      <td className="py-2 pr-4 text-right">
-                        {preview
-                          ? formatRupiah(preview.totalCost)
-                          : "-"}
+                      <td className="py-3 pr-4 text-right font-semibold text-slate-700">
+                        {preview ? formatRupiah(preview.totalCost) : "-"}
                       </td>
-                      <td className="py-2 pr-4 text-right">
-                        {preview
-                          ? formatRupiah(preview.profit)
-                          : "-"}
+                      <td className="py-3 pr-4 text-right font-bold text-indigo-600">
+                        {preview ? formatRupiah(preview.profit) : "-"}
                       </td>
-                      <td className="py-2 pr-2 text-right">
+                      <td className="py-3 pr-2 text-right">
                         {items.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeItemRow(index)}
-                            className="text-[11px] text-rose-600 hover:text-rose-700"
+                            className="text-sm text-rose-600 hover:text-rose-700 font-semibold hover:underline transition-colors"
                           >
                             Hapus
                           </button>
@@ -374,46 +345,32 @@ export default function TransactionsPage() {
             </table>
           </div>
 
-          {/* PREVIEW TOTAL TRANSAKSI */}
-          <div className="mt-2 flex flex-wrap gap-4 text-[11px] text-slate-600">
-            <span>
-              Total Jual:{" "}
-              <strong>{formatRupiah(totalPreview.totalSell)}</strong>
-            </span>
-            <span>
-              Potongan Shopee (±17%):{" "}
-              <strong>{formatRupiah(totalPreview.totalFee)}</strong>
-            </span>
-            <span>
-              Net Income:{" "}
-              <strong>{formatRupiah(totalPreview.totalNet)}</strong>
-            </span>
-            <span>
-              Total Modal:{" "}
-              <strong>{formatRupiah(totalPreview.totalCost)}</strong>
-            </span>
-            <span>
-              Laba Bersih:{" "}
-              <strong>{formatRupiah(totalPreview.totalProfit)}</strong>
-            </span>
+          {/* Preview Total */}
+          <div className="flex flex-wrap gap-5 text-sm bg-gradient-to-r from-indigo-50 to-violet-50 rounded-2xl p-4 border border-indigo-100">
+            <PreviewBadge label="Total Jual" value={formatRupiah(totalPreview.totalSell)} />
+            <PreviewBadge label="Potongan Shopee" value={formatRupiah(totalPreview.totalFee)} />
+            <PreviewBadge label="Net Income" value={formatRupiah(totalPreview.totalNet)} />
+            <PreviewBadge label="Total Modal" value={formatRupiah(totalPreview.totalCost)} />
+            <PreviewBadge label="Laba Bersih" value={formatRupiah(totalPreview.totalProfit)} highlight />
           </div>
         </div>
 
-        {/* NOTES + ACTIONS */}
-        <div className="space-y-2">
-          <label className="block text-xs font-medium text-slate-600">
+        {/* Notes */}
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">
             Catatan (opsional)
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            rows={3}
+            className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all resize-y bg-white hover:border-slate-300"
             placeholder="Misal: pesanan rutin, beli untuk reseller, dsb."
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2">
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
           <button
             type="button"
             onClick={() => {
@@ -422,97 +379,119 @@ export default function TransactionsPage() {
               setNotes("");
               setItems([{ ...EMPTY_ITEM }]);
             }}
-            className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50"
+            className="px-6 py-3 text-sm rounded-xl border-2 border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 hover:border-slate-400 transition-all"
           >
             Reset
           </button>
           <button
             type="submit"
-            className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700"
+            className="px-8 py-3 text-sm rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold hover:from-indigo-700 hover:to-violet-700 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
           >
             Simpan Transaksi
           </button>
         </div>
       </form>
 
-      {/* RIWAYAT TRANSAKSI PER ITEM */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+      {/* RIWAYAT TRANSAKSI */}
+      <div className="bg-white rounded-3xl shadow-xl border border-slate-200/50 p-8 hover:shadow-2xl transition-all duration-500">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 pb-5 border-b border-slate-200">
           <div>
-            <h2 className="text-base font-semibold text-slate-800">
-              Riwayat Transaksi (Per Item)
+            <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-1">
+              Riwayat Transaksi
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-sm text-slate-600">
               Setiap baris adalah 1 item produk dalam transaksi Shopee.
-              Kamu bisa mencari berdasarkan username dan menghapus item
-              tertentu jika salah input.
             </p>
           </div>
-
-          <div className="flex items-center gap-2">
+          <div className="relative">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cari username…"
-              className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="🔍 Cari username…"
+              className="border-2 border-slate-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all w-full md:w-64 bg-white hover:border-slate-300"
             />
           </div>
         </div>
 
         {loading ? (
-          <p className="text-xs text-slate-500">Memuat data…</p>
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mb-4" />
+            <p className="text-sm text-slate-600">Memuat data…</p>
+          </div>
         ) : sortedTransactions.length === 0 ? (
-          <p className="text-xs text-slate-500">
-            Belum ada transaksi yang tercatat.
-          </p>
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">📦</div>
+            <p className="text-lg font-semibold text-slate-700 mb-2">
+              Belum ada transaksi yang tercatat
+            </p>
+            <p className="text-sm text-slate-500">
+              Input transaksi pertama menggunakan form di atas
+            </p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-xs">
+            <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left text-[11px] uppercase text-slate-400 border-b border-slate-100">
-                  <th className="py-2 pr-4">Tanggal</th>
-                  <th className="py-2 pr-4">Username</th>
-                  <th className="py-2 pr-4">Produk</th>
-                  <th className="py-2 pr-4 text-right">Qty</th>
-                  <th className="py-2 pr-4 text-right">Total Jual</th>
-                  <th className="py-2 pr-4 text-right">Modal</th>
-                  <th className="py-2 pr-4 text-right">Laba</th>
-                  <th className="py-2 pr-4 text-right">Aksi</th>
+                <tr className="border-b-2 border-slate-200">
+                  <th className="text-left py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Tanggal
+                  </th>
+                  <th className="text-left py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Username
+                  </th>
+                  <th className="text-left py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Produk
+                  </th>
+                  <th className="text-right py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Qty
+                  </th>
+                  <th className="text-right py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Total Jual
+                  </th>
+                  <th className="text-right py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Modal
+                  </th>
+                  <th className="text-right py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Laba
+                  </th>
+                  <th className="text-right py-4 pr-4 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Aksi
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {sortedTransactions.map((t) => (
                   <tr
                     key={t.id}
-                    className="border-b border-slate-50 hover:bg-slate-50/60"
+                    className="border-b border-slate-100 hover:bg-indigo-50/30 transition-colors group"
                   >
-                    <td className="py-2 pr-4 whitespace-nowrap">
+                    <td className="py-4 pr-4 whitespace-nowrap font-medium text-slate-700">
                       {formatDate(t.date)}
                     </td>
-                    <td className="py-2 pr-4 whitespace-nowrap">
+                    <td className="py-4 pr-4 whitespace-nowrap font-semibold text-slate-800">
                       {t.buyerUsername}
                     </td>
-                    <td className="py-2 pr-4 whitespace-nowrap">
+                    <td className="py-4 pr-4 whitespace-nowrap text-slate-700">
                       {t.productName}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-4 pr-4 text-right font-semibold text-slate-700">
                       {formatNumber(t.quantity)}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-4 pr-4 text-right font-semibold text-slate-800">
                       {formatRupiah(t.totalSellPrice)}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-4 pr-4 text-right font-semibold text-slate-700">
                       {formatRupiah(t.totalCost)}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-4 pr-4 text-right font-bold text-indigo-600">
                       {formatRupiah(t.profit)}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-4 pr-4 text-right">
                       <button
                         type="button"
                         onClick={() => handleDelete(t.id)}
-                        className="text-[11px] text-rose-600 hover:text-rose-700"
+                        className="text-sm text-rose-600 hover:text-rose-700 font-semibold opacity-0 group-hover:opacity-100 transition-all hover:underline"
                       >
                         Hapus
                       </button>
@@ -524,6 +503,21 @@ export default function TransactionsPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function PreviewBadge({ label, value, highlight = false }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-slate-600 font-medium">{label}:</span>
+      <span
+        className={`font-bold ${
+          highlight ? "text-indigo-600 text-lg" : "text-slate-800"
+        }`}
+      >
+        {value}
+      </span>
     </div>
   );
 }

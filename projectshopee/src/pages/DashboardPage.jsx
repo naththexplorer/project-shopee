@@ -1,8 +1,4 @@
 // src/pages/DashboardPage.jsx
-// Dashboard utama.
-// - Atas: TodaySummaryRow (sudah ada, tidak diubah).
-// - Tengah: Laba BluePack & CempakaPack HARI INI dan KEMARIN (tanpa range).
-// - Bawah: Status modal (all time) + Produk terlaris + Transaksi terbaru.
 
 import { useMemo } from "react";
 import { useData } from "../context/DataContext.jsx";
@@ -28,10 +24,8 @@ export default function DashboardPage() {
     const txAll = Array.isArray(transactions) ? transactions : [];
     const wd = Array.isArray(withdrawals) ? withdrawals : [];
 
-    // tanggal hari ini & kemarin dalam format YYYY-MM-DD
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
-
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().slice(0, 10);
@@ -40,19 +34,15 @@ export default function DashboardPage() {
     let bluePackYesterday = 0;
     let cempakaToday = 0;
     let cempakaYesterday = 0;
-
     let totalModalKeluar = 0;
     let totalWithdrawAyah = 0;
 
     const byProduct = new Map();
-
-    // urutkan transaksi untuk "transaksi terbaru"
     const sortedTx = [...txAll].sort(
       (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
     );
 
     for (const t of txAll) {
-      // selalu utamakan field date untuk perhitungan harian
       const dateStr =
         t.date ||
         new Date(t.timestamp || Date.now()).toISOString().slice(0, 10);
@@ -72,7 +62,6 @@ export default function DashboardPage() {
 
       totalModalKeluar += t.totalCost || 0;
 
-      // agregasi produk (all time)
       const key = t.productCode || t.productName || "UNKNOWN";
       const existing =
         byProduct.get(key) || {
@@ -87,7 +76,6 @@ export default function DashboardPage() {
       byProduct.set(key, existing);
     }
 
-    // withdraw all time
     for (const w of wd) {
       totalWithdrawAyah += w.amount || 0;
     }
@@ -118,221 +106,228 @@ export default function DashboardPage() {
   }, [transactions, withdrawals]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-slate-800">
-          Dashboard
-        </h1>
-        <p className="text-sm text-slate-500">
-          Gambaran singkat penjualan Shopee, laba BluePack x CempakaPack,
-          dan status modal.
-        </p>
+    <div className="space-y-8 animate-fadeIn">
+      {/* Header with premium styling */}
+      <div className="relative">
+        <div className="absolute -top-4 -left-4 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl" />
+        <div className="absolute -top-4 -right-4 w-32 h-32 bg-violet-200/30 rounded-full blur-3xl" />
+        <div className="relative">
+          <h1 className="text-3xl font-extrabold text-slate-800 mb-2">
+            Ringkasan Penjualan
+          </h1>
+          <p className="text-base text-slate-600">
+            Gambaran singkat tentang penjualan Shopee, laba, dan
+            modal.
+          </p>
+        </div>
       </div>
 
-      {/* Ringkasan hari ini (sales, transaksi, dll) */}
+      {/* Ringkasan hari ini */}
       <TodaySummaryRow />
 
       {/* Laba harian BluePack & CempakaPack */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-        <h2 className="text-base font-semibold text-slate-800 mb-1">
-          Laba Harian BluePack &amp; CempakaPack
-        </h2>
-        <p className="text-xs text-slate-500 mb-4">
-          Laba bersih yang sudah dibagi 40% / 60% berdasarkan tanggal transaksi
-          hari ini dan kemarin (per item).
-        </p>
+           {/* Laba harian Toko */}
+      <div className="bg-gradient-to-br from-white to-indigo-50/30 rounded-3xl shadow-lg shadow-indigo-100/50 border border-indigo-100/50 p-7 hover:shadow-xl hover:shadow-indigo-200/50 transition-all duration-500">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">
+              Laba Harian Toko
+            </h2>
+            <p className="text-sm text-slate-600">
+              Laba bersih yang sudah dibagi 40% / 60% berdasarkan tanggal
+              transaksi hari ini dan kemarin (per item).
+            </p>
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <MiniStat
             label="Laba BluePack - Hari Ini"
             value={formatRupiah(bluePackToday)}
             helper="Akumulasi bagian BluePack dari transaksi hari ini"
+            color="blue"
           />
           <MiniStat
             label="Laba BluePack - Kemarin"
             value={formatRupiah(bluePackYesterday)}
             helper="Akumulasi bagian BluePack dari transaksi kemarin"
+            color="blue"
+            subdued
           />
           <MiniStat
             label="Laba CempakaPack - Hari Ini"
             value={formatRupiah(cempakaToday)}
             helper="Akumulasi bagian CempakaPack dari transaksi hari ini"
+            color="purple"
           />
           <MiniStat
             label="Laba CempakaPack - Kemarin"
             value={formatRupiah(cempakaYesterday)}
             helper="Akumulasi bagian CempakaPack dari transaksi kemarin"
+            color="purple"
+            subdued
           />
         </div>
       </div>
 
-      {/* Status modal + analitik (all time) */}
+      {/* Status modal + analitik */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Status modal all-time */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
-          <h2 className="text-base font-semibold text-slate-800 mb-1">
-            Status Modal (All Time)
-          </h2>
-          <p className="text-xs text-slate-500 mb-3">
-            Rule: laba periode hanya boleh dibagi jika modal sudah lunas.
-          </p>
+        {/* Status modal */}
+        <div className="bg-white rounded-3xl shadow-lg border border-slate-200/50 p-7 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-indigo-100/50 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
 
-          <p
-            className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold mb-3 ${
-              modalSummary.isLunas
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                : "bg-rose-50 text-rose-700 border border-rose-100"
-            }`}
-          >
-            {modalSummary.isLunas
-              ? "🟢 MODAL LUNAS — siap bagi laba periode"
-              : "🔴 SALDO HUTANG MODAL — belum boleh bagi laba periode"}
-          </p>
+          <div className="relative">
+            <h2 className="text-lg font-bold text-slate-800 mb-1 flex items-center">
+              Status Modal (All Time)
+            </h2>
+            <p className="text-xs text-slate-600 mb-4">
+              Rule: laba periode hanya boleh dibagi jika modal sudah lunas.
+            </p>
 
-          <div className="space-y-1">
-            <Row
-              label="Total Modal Keluar"
-              value={formatRupiah(modalSummary.totalModalKeluar)}
-            />
-            <Row
-              label="Total Withdraw Ayah"
-              value={formatRupiah(modalSummary.totalWithdrawAyah)}
-            />
-            <Row
-              label="Saldo Hutang Modal"
-              value={formatRupiah(
-                modalSummary.saldoHutangModal > 0
-                  ? modalSummary.saldoHutangModal
-                  : 0
-              )}
-            />
+            <div
+              className={`inline-flex items-center px-4 py-2 rounded-2xl text-xs font-bold mb-5 shadow-md ${
+                modalSummary.isLunas
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white"
+                  : "bg-gradient-to-r from-rose-500 to-pink-500 text-white"
+              }`}
+            >
+              {modalSummary.isLunas
+                ? "🟢 MODAL LUNAS — siap bagi laba periode"
+                : "🔴 SALDO HUTANG MODAL — belum boleh bagi laba periode"}
+            </div>
+
+            <div className="space-y-3">
+              <Row
+                label="Total Modal Keluar"
+                value={formatRupiah(modalSummary.totalModalKeluar)}
+              />
+              <Row
+                label="Total Withdraw Ayah"
+                value={formatRupiah(modalSummary.totalWithdrawAyah)}
+              />
+              <Row
+                label="Saldo Hutang Modal"
+                value={formatRupiah(
+                  modalSummary.saldoHutangModal > 0
+                    ? modalSummary.saldoHutangModal
+                    : 0
+                )}
+                highlight={!modalSummary.isLunas}
+              />
+            </div>
+
+            <p className="mt-5 text-xs text-slate-500 bg-slate-50 rounded-xl p-3 border border-slate-100">
+              💡 Detail lebih lengkap bisa dilihat di menu{" "}
+              <span className="font-bold text-indigo-600">
+                Manajemen Modal
+              </span>
+              .
+            </p>
           </div>
-
-          <p className="mt-3 text-[11px] text-slate-400">
-            Detail lebih lengkap bisa dilihat di menu{" "}
-            <span className="font-semibold text-slate-600">
-              Manajemen Modal
-            </span>
-            .
-          </p>
         </div>
 
-        {/* Produk terlaris & transaksi terbaru (all time) */}
+        {/* Produk terlaris & transaksi terbaru */}
         <div className="xl:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Produk terlaris */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
-            <h2 className="text-base font-semibold text-slate-800 mb-1">
-              Produk Terlaris (Per Item)
+          <div className="bg-white rounded-3xl shadow-lg border border-slate-200/50 p-7 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+              Produk Terlaris
             </h2>
-            <p className="text-xs text-slate-500 mb-3">
+            <p className="text-xs text-slate-600 mb-4">
               Top 5 produk berdasarkan quantity terjual dari seluruh data
               transaksi (all time).
             </p>
 
             {topProducts.length === 0 ? (
-              <p className="text-xs text-slate-500">
-                Belum ada data produk terlaris. Input beberapa transaksi
-                terlebih dahulu.
-              </p>
+              <div className="text-center py-8">
+                <div className="text-4xl mb-2">📦</div>
+                <p className="text-sm text-slate-500">
+                  Belum ada data produk terlaris.
+                </p>
+              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-[11px] uppercase text-slate-400 border-b border-slate-100">
-                      <th className="py-2 pr-4">Produk</th>
-                      <th className="py-2 pr-4 text-right">
-                        Qty Terjual
-                      </th>
-                      <th className="py-2 pr-4 text-right">
-                        Total Penjualan
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topProducts.map((p) => (
-                      <tr
-                        key={p.code}
-                        className="border-b border-slate-50 hover:bg-slate-50/60"
-                      >
-                        <td className="py-2 pr-4 whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <span className="font-medium text-slate-800">
-                              {p.name}
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              {p.code}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-2 pr-4 text-right">
-                          {formatNumber(p.quantity)}
-                        </td>
-                        <td className="py-2 pr-4 text-right">
-                          {formatRupiah(p.revenue)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-3">
+                {topProducts.map((p, idx) => (
+                  <div
+                    key={p.code}
+                    className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-indigo-50/30 rounded-2xl border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all duration-300 group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white font-bold text-sm shadow-md">
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-800 text-sm group-hover:text-indigo-600 transition-colors">
+                          {p.name}
+                        </div>
+                        <div className="text-xs text-slate-500">{p.code}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-indigo-600 text-sm">
+                        {formatNumber(p.quantity)}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {formatRupiah(p.revenue)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
           {/* Transaksi terbaru */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm">
-            <h2 className="text-base font-semibold text-slate-800 mb-1">
+          <div className="bg-white rounded-3xl shadow-lg border border-slate-200/50 p-7 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <h2 className="text-lg font-bold text-slate-800 mb-2">
               Transaksi Terbaru
             </h2>
-            <p className="text-xs text-slate-500 mb-3">
+            <p className="text-xs text-slate-600 mb-4">
               5 transaksi item terakhir yang kamu input (all time).
             </p>
 
             {loading ? (
-              <p className="text-xs text-slate-500">Memuat data…</p>
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-200 border-t-indigo-600" />
+                <p className="text-sm text-slate-500 mt-3">Memuat data…</p>
+              </div>
             ) : recentTransactions.length === 0 ? (
-              <p className="text-xs text-slate-500">
-                Belum ada transaksi tercatat.
-              </p>
+              <div className="text-center py-8">
+                <div className="text-4xl mb-2">📝</div>
+                <p className="text-sm text-slate-500">
+                  Belum ada transaksi tercatat.
+                </p>
+              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-[11px] uppercase text-slate-400 border-b border-slate-100">
-                      <th className="py-2 pr-4">Tanggal</th>
-                      <th className="py-2 pr-4">Username</th>
-                      <th className="py-2 pr-4">Produk</th>
-                      <th className="py-2 pr-4 text-right">Qty</th>
-                      <th className="py-2 pr-4 text-right">
-                        Total Jual
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentTransactions.map((t) => (
-                      <tr
-                        key={t.id}
-                        className="border-b border-slate-50 hover:bg-slate-50/60"
-                      >
-                        <td className="py-2 pr-4 whitespace-nowrap">
-                          {formatDate(t.date)}
-                        </td>
-                        <td className="py-2 pr-4 whitespace-nowrap">
+              <div className="space-y-3">
+                {recentTransactions.map((t) => (
+                  <div
+                    key={t.id}
+                    className="p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 hover:shadow-sm transition-all duration-300"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="font-semibold text-slate-800 text-sm">
                           {t.buyerUsername}
-                        </td>
-                        <td className="py-2 pr-4 whitespace-nowrap">
-                          {t.productName}
-                        </td>
-                        <td className="py-2 pr-4 text-right">
-                          {formatNumber(t.quantity)}
-                        </td>
-                        <td className="py-2 pr-4 text-right">
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {formatDate(t.date)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-indigo-600 text-sm">
                           {formatRupiah(t.totalSellPrice)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600">{t.productName}</span>
+                      <span className="font-semibold text-slate-700">
+                        {formatNumber(t.quantity)} pcs
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -342,27 +337,50 @@ export default function DashboardPage() {
   );
 }
 
-function MiniStat({ label, value, helper }) {
+// Premium MiniStat component
+function MiniStat({ label, value, helper, color = "blue", subdued = false }) {
+  const colorClasses = {
+    blue: subdued
+      ? "from-blue-50 to-indigo-50 border-blue-100"
+      : "from-blue-100 to-indigo-100 border-blue-200",
+    purple: subdued
+      ? "from-purple-50 to-violet-50 border-purple-100"
+      : "from-purple-100 to-violet-100 border-purple-200",
+  };
+
+  const textColor = color === "blue" ? "text-indigo-600" : "text-violet-600";
+
   return (
-    <div className="bg-slate-50 rounded-2xl px-4 py-3">
-      <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+    <div
+      className={`bg-gradient-to-br ${colorClasses[color]} rounded-2xl px-5 py-4 border hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group`}
+    >
+      <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2">
         {label}
       </p>
-      <p className="mt-1 text-lg font-semibold text-slate-900">
+      <p
+        className={`text-2xl font-extrabold ${textColor} mb-1 group-hover:scale-105 transition-transform`}
+      >
         {value}
       </p>
       {helper && (
-        <p className="mt-1 text-[11px] text-slate-400">{helper}</p>
+        <p className="text-[10px] text-slate-500 leading-relaxed">{helper}</p>
       )}
     </div>
   );
 }
 
-function Row({ label, value }) {
+// Premium Row component
+function Row({ label, value, highlight = false }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-semibold text-slate-900">{value}</span>
+    <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+      <span className="text-sm text-slate-600 font-medium">{label}</span>
+      <span
+        className={`text-sm font-bold ${
+          highlight ? "text-rose-600" : "text-slate-900"
+        }`}
+      >
+        {value}
+      </span>
     </div>
   );
 }

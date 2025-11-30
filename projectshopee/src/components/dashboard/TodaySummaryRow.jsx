@@ -1,106 +1,88 @@
 // src/components/dashboard/TodaySummaryRow.jsx
-// Row kartu ringkasan di Dashboard (penjualan hari ini, transaksi hari ini,
-// laba BluePack & CempakaPack bulan berjalan).
 
 import { useMemo } from "react";
 import { useData } from "../../context/DataContext.jsx";
-import { formatRupiah, formatNumber } from "../../utils/formatters.js";
+import { formatRupiah } from "../../utils/formatters.js";
 
 export default function TodaySummaryRow() {
-  const { transactions, loading } = useData();
+  const { transactions, summary, loading } = useData();
 
-  // Hitung metrik berbasis transaksi
-  const stats = useMemo(() => {
-    if (!transactions || transactions.length === 0) {
-      return {
-        totalSalesToday: 0,
-        totalTransactionsToday: 0,
-        bluePackProfitThisMonth: 0,
-        cempakaPackProfitThisMonth: 0,
-      };
-    }
+  const todayStats = useMemo(() => {
+    const txAll = Array.isArray(transactions) ? transactions : [];
+    const todayStr = new Date().toISOString().slice(0, 10);
 
-    const now = new Date();
-    const todayISO = now.toISOString().slice(0, 10); // YYYY-MM-DD
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const todayTx = txAll.filter((t) => {
+      const dateStr =
+        t.date ||
+        new Date(t.timestamp || Date.now()).toISOString().slice(0, 10);
+      return dateStr === todayStr;
+    });
 
-    let totalSalesToday = 0;
-    let totalTransactionsToday = 0;
-    let bluePackProfitThisMonth = 0;
-    let cempakaPackProfitThisMonth = 0;
+    const totalToday = todayTx.reduce(
+      (acc, t) => acc + (t.totalSellPrice || 0),
+      0
+    );
 
-    for (const t of transactions) {
-      // tanggal disimpan sebagai string "YYYY-MM-DD" dari input <input type="date">
-      if (t.date === todayISO) {
-        totalSalesToday += t.totalSellPrice || 0;
-        totalTransactionsToday += 1;
-      }
-
-      // transaksi bulan berjalan (untuk laba Blue/Cempaka)
-      try {
-        const d = new Date(t.date);
-        if (d.getFullYear() === year && d.getMonth() === month) {
-          bluePackProfitThisMonth += t.bluePack || 0;
-          cempakaPackProfitThisMonth += t.cempakaPack || 0;
-        }
-      } catch {
-        // kalau parsing gagal, abaikan saja
-      }
-    }
+    const profitToday = todayTx.reduce(
+      (acc, t) => acc + (t.profit || 0),
+      0
+    );
 
     return {
-      totalSalesToday,
-      totalTransactionsToday,
-      bluePackProfitThisMonth,
-      cempakaPackProfitThisMonth,
+      totalToday,
+      profitToday,
+      countToday: todayTx.length,
     };
   }, [transactions]);
 
-  const {
-    totalSalesToday,
-    totalTransactionsToday,
-    bluePackProfitThisMonth,
-    cempakaPackProfitThisMonth,
-  } = stats;
+  if (loading) {
+    return (
+      <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-500">
+        Memuat ringkasan hari ini…
+      </div>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      <StatCard
-        label="Total Penjualan Hari Ini"
-        value={formatRupiah(totalSalesToday)}
-        subtitle={loading ? "Memuat…" : "Dihitung dari transaksi hari ini"}
-      />
-      <StatCard
-        label="Total Transaksi Hari Ini"
-        value={formatNumber(totalTransactionsToday)}
-        subtitle={loading ? "Memuat…" : "Jumlah order yang masuk hari ini"}
-      />
-      <StatCard
-        label="Laba BluePack (40%) - Bulan Ini"
-        value={formatRupiah(bluePackProfitThisMonth)}
-        subtitle="Akumulasi laba bagian BluePack bulan berjalan"
-      />
-      <StatCard
-        label="Laba CempakaPack (60%) - Bulan Ini"
-        value={formatRupiah(cempakaPackProfitThisMonth)}
-        subtitle="Akumulasi laba bagian CempakaPack bulan berjalan"
-      />
-    </div>
-  );
-}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Total penjualan hari ini */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all duration-300">
+        <p className="text-xs font-semibold text-slate-500 uppercase mb-1">
+          Total Penjualan Hari Ini
+        </p>
+        <p className="text-2xl font-bold text-indigo-600">
+          {formatRupiah(todayStats.totalToday)}
+        </p>
+        <p className="text-[11px] text-slate-500 mt-1">
+          Omzet kotor dari semua transaksi yang bertanggal hari ini.
+        </p>
+      </div>
 
-// Versi minimal kartu statistik, biar nggak tergantung komponen lain dulu.
-function StatCard({ label, value, subtitle }) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3">
-      <p className="text-[11px] font-medium tracking-wide text-slate-500 uppercase">
-        {label}
-      </p>
-      <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>
-      {subtitle && (
-        <p className="mt-1 text-[11px] text-slate-400">{subtitle}</p>
-      )}
+      {/* Laba hari ini */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all duration-300">
+        <p className="text-xs font-semibold text-slate-500 uppercase mb-1">
+          Laba Bersih Hari Ini
+        </p>
+        <p className="text-2xl font-bold text-emerald-600">
+          {formatRupiah(todayStats.profitToday)}
+        </p>
+        <p className="text-[11px] text-slate-500 mt-1">
+          Sudah dikurangi modal & fee Shopee (sesuai input transaksi).
+        </p>
+      </div>
+
+      {/* Laba all time */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all duration-300">
+        <p className="text-xs font-semibold text-slate-500 uppercase mb-1">
+          Laba Bersih (All Time)
+        </p>
+        <p className="text-2xl font-bold text-slate-800">
+          {formatRupiah(summary.totalProfit || 0)}
+        </p>
+        <p className="text-[11px] text-slate-500 mt-1">
+          Akumulasi dari seluruh data transaksi yang sudah tercatat.
+        </p>
+      </div>
     </div>
   );
 }

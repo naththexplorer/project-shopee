@@ -20,8 +20,8 @@ export default function Sidebar() {
           BP
         </div>
         <div>
-          <p className="text-xs opacity-80">BluePack x CempakaPack</p>
-          <p className="font-semibold text-lg">Shopee Panel</p>
+          <p className="text-xs opacity-80">Shopee</p>
+          <p className="font-semibold text-lg">Rekap Transaksi</p>
         </div>
       </div>
 
@@ -31,14 +31,6 @@ export default function Sidebar() {
           <SidebarItem key={item.to} {...item} />
         ))}
       </nav>
-
-      {/* Info kecil di bawah sidebar */}
-      <div className="mt-6 p-4 rounded-2xl bg-white/10 text-[11px] leading-snug">
-        <p className="font-semibold mb-1">Status Modal</p>
-        <p className="opacity-80">
-          Pantau hutang modal & laba periode langsung dari dashboard.
-        </p>
-      </div>
     </aside>
   );
 }
