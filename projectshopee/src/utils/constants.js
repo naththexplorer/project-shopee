@@ -44,18 +44,12 @@ export const productList = [
   },
   {
     code: "POT-KRIM",
-    name: "Pot Krim 50g",
+    name: "Pot Cream 50g",
     type: "satuan",
     sellPrice: 1100,
-    costPrice: 560,
+    costPrice: 570,
   },
-  {
-    code: "HIDRO-100",
-    name: "Hidroponik 100 pcs",
-    type: "satuan",
-    sellPrice: 24800,
-    costPrice: 12000,
-  },
+
   // Paket 500 pcs
   {
     code: "PAKET-20",
@@ -72,6 +66,20 @@ export const productList = [
     sellPrice: 130000,
     costPrice: 72500, // 145 x 500
     packageSize: 500,
+  },
+  {
+    code: "HIDRO-100",
+    name: "Paket Hidroponik 100 pcs",
+    type: "satuan",
+    sellPrice: 24800,
+    costPrice: 12000,
+  },
+  {
+    code: "PAKET-CRM-50",
+    name: "Paket Pot 50gr Cream",
+    type: "paket",
+    sellPrice: 96000,
+    costPrice: 57000,
   },
 ];
 
