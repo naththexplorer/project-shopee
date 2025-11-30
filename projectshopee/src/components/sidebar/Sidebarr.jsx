@@ -13,7 +13,7 @@ const menu = [
 
 export default function Sidebar() {
   return (
-    <aside className="hidden md:flex md:flex-col w-64 bg-gradient-to-b from-indigo-600 to-violet-600 text-white p-4">
+    <aside className="sticky top-0 h-screen hidden md:flex md:flex-col w-64 bg-gradient-to-b from-indigo-600 to-violet-600 text-white p-4 overflow-y-auto">
       {/* Brand/logo */}
       <div className="flex items-center gap-3 mb-8 px-2">
         <div className="h-10 w-10 rounded-xl overflow-hidden bg-white/20 flex items-center justify-center">
