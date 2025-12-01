@@ -21,7 +21,12 @@ const SIDEBAR_ITEMS = [
   },
   {
     to: "/modal",
-    label: "Manajemen Uang",
+    label: "Laporan Cempakapack",
+    icon: Wallet,
+  },
+  {
+    to: "/bluepack",
+    label: "Laporan Bluepack",
     icon: Wallet,
   },
   {
@@ -30,6 +35,7 @@ const SIDEBAR_ITEMS = [
     icon: BarChart3,
   },
 ];
+
 
 export default function Sidebarr({ currentPath, isOpen, onClose }) {
   return (
@@ -50,7 +56,7 @@ export default function Sidebarr({ currentPath, isOpen, onClose }) {
         {/* Logo & brand */}
         <div className="px-5 pt-5 pb-4 border-b border-white/10 flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-white/10 flex items-center justify-center shadow-lg">
-            <span className="text-xl font-black tracking-tight">BP</span>
+            <span className="text-xl font-black tracking-tight">F</span>
           </div>
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold">Rekap Shopee</span>
@@ -111,7 +117,7 @@ export default function Sidebarr({ currentPath, isOpen, onClose }) {
               </div>
               <div className="flex flex-col leading-tight">
                 <span className="text-sm font-semibold">
-                  BluePack x CempakaPack
+                  Rekap Keuangan
                 </span>
                 <span className="text-[11px] text-white/60">Admin Panel</span>
               </div>

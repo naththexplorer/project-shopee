@@ -1,5 +1,5 @@
 // src/context/DataContext.jsx
-// Provider global untuk transaksi, withdraw, summary, dan sync dengan Firestore.
+// Provider global untuk transaksi, withdraw CempakaPack, withdraw BluePack, summary, dan sync dengan Firestore.
 
 import {
   collection,
@@ -8,7 +8,7 @@ import {
   doc,
   onSnapshot,
   orderBy,
-  query
+  query,
 } from "firebase/firestore";
 
 import { db } from "../config/firebase";
@@ -19,13 +19,13 @@ export const useData = () => useContext(DataContext);
 
 export function DataProvider({ children }) {
   const [transactions, setTransactions] = useState([]);
-  const [withdrawals, setWithdrawals] = useState([]);
+  const [withdrawals, setWithdrawals] = useState([]); // CempakaPack
+  const [bluepackWithdrawals, setBluepackWithdrawals] = useState([]); // BluePack
   const [loading, setLoading] = useState(true);
 
-  // ===============================
-  // LOAD REAL-TIME DATA
-  // ===============================
-
+  // =========================================
+  // REAL-TIME LISTENER TRANSAKSI
+  // =========================================
   useEffect(() => {
     const q = query(collection(db, "transactions"), orderBy("timestamp", "desc"));
     const unsub = onSnapshot(q, (snap) => {
@@ -37,6 +37,9 @@ export function DataProvider({ children }) {
     return () => unsub();
   }, []);
 
+  // =========================================
+  // REAL-TIME LISTENER WITHDRAWAL CEMPAKAPACK
+  // =========================================
   useEffect(() => {
     const q = query(collection(db, "withdrawals"), orderBy("timestamp", "desc"));
     const unsub = onSnapshot(q, (snap) => {
@@ -47,10 +50,25 @@ export function DataProvider({ children }) {
     return () => unsub();
   }, []);
 
-  // ===============================
-  // ADD TRANSACTION
-  // ===============================
+  // =========================================
+  // REAL-TIME LISTENER WITHDRAWAL BLUEPACK
+  // =========================================
+  useEffect(() => {
+    const q = query(
+      collection(db, "bluepack_withdrawals"),
+      orderBy("timestamp", "desc")
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setBluepackWithdrawals(arr);
+    });
 
+    return () => unsub();
+  }, []);
+
+  // =========================================
+  // ADD TRANSACTION
+  // =========================================
   async function addTransaction(data) {
     await addDoc(collection(db, "transactions"), {
       ...data,
@@ -58,18 +76,16 @@ export function DataProvider({ children }) {
     });
   }
 
-  // ===============================
+  // =========================================
   // DELETE TRANSACTION
-  // ===============================
-
+  // =========================================
   async function deleteTransaction(id) {
     await deleteDoc(doc(db, "transactions", id));
   }
 
-  // ===============================
-  // ADD WITHDRAWAL
-  // ===============================
-
+  // =========================================
+  // ADD WITHDRAWAL CEMPAKAPACK
+  // =========================================
   async function addWithdrawal(data) {
     await addDoc(collection(db, "withdrawals"), {
       ...data,
@@ -77,28 +93,86 @@ export function DataProvider({ children }) {
     });
   }
 
-  // ===============================
-  // DELETE WITHDRAWAL
-  // ===============================
-
+  // =========================================
+  // DELETE WITHDRAWAL CEMPAKAPACK
+  // =========================================
   async function deleteWithdrawal(id) {
     await deleteDoc(doc(db, "withdrawals", id));
   }
 
-  // ===============================
-  // SUMMARY (computed dari state)
-  // ===============================
+  // =========================================
+  // ADD WITHDRAWAL BLUEPACK
+  // =========================================
+  async function addBluepackWithdrawal(data) {
+    await addDoc(collection(db, "bluepack_withdrawals"), {
+      ...data,
+      timestamp: Date.now(),
+    });
+  }
+
+  // =========================================
+  // DELETE WITHDRAWAL BLUEPACK
+  // =========================================
+  async function deleteBluepackWithdrawal(id) {
+    await deleteDoc(doc(db, "bluepack_withdrawals", id));
+  }
+
+  // =========================================
+  // SUMMARY TERHITUNG OTOMATIS
+  // =========================================
+  const totalSell = transactions.reduce(
+    (acc, t) => acc + (t.totalSellPrice || 0),
+    0
+  );
+  const totalFee = transactions.reduce(
+    (acc, t) => acc + (t.shopeeDiscount || 0),
+    0
+  );
+  const totalNet = transactions.reduce(
+    (acc, t) => acc + (t.netIncome || 0),
+    0
+  );
+  const totalCost = transactions.reduce(
+    (acc, t) => acc + (t.totalCost || 0),
+    0
+  );
+  const totalProfit = transactions.reduce(
+    (acc, t) => acc + (t.profit || 0),
+    0
+  );
+  const bluePack = transactions.reduce(
+    (acc, t) => acc + (t.bluePack || 0),
+    0
+  );
+  const cempakaPack = transactions.reduce(
+    (acc, t) => acc + (t.cempakaPack || 0),
+    0
+  );
+
+  const totalWithdraw = withdrawals.reduce(
+    (acc, w) => acc + (w.amount || 0),
+    0
+  );
+
+  const totalBluepackWithdraw = bluepackWithdrawals.reduce(
+    (acc, w) => acc + (w.amount || 0),
+    0
+  );
+
+  const saldoBluepack = bluePack - totalBluepackWithdraw;
 
   const summary = {
-    totalSell: transactions.reduce((acc, t) => acc + (t.totalSellPrice || 0), 0),
-    totalFee: transactions.reduce((acc, t) => acc + (t.shopeeDiscount || 0), 0),
-    totalNet: transactions.reduce((acc, t) => acc + (t.netIncome || 0), 0),
-    totalCost: transactions.reduce((acc, t) => acc + (t.totalCost || 0), 0),
-    totalProfit: transactions.reduce((acc, t) => acc + (t.profit || 0), 0),
-    bluePack: transactions.reduce((acc, t) => acc + (t.bluePack || 0), 0),
-    cempakaPack: transactions.reduce((acc, t) => acc + (t.cempakaPack || 0), 0),
+    totalSell,
+    totalFee,
+    totalNet,
+    totalCost,
+    totalProfit,
+    bluePack,
+    cempakaPack,
 
-    totalWithdraw: withdrawals.reduce((acc, w) => acc + (w.amount || 0), 0),
+    totalWithdraw, // CempakaPack
+    totalBluepackWithdraw,
+    saldoBluepack,
   };
 
   return (
@@ -106,16 +180,22 @@ export function DataProvider({ children }) {
       value={{
         transactions,
         withdrawals,
+        bluepackWithdrawals,
         summary,
         loading,
 
         addTransaction,
         deleteTransaction,
+
         addWithdrawal,
         deleteWithdrawal,
+
+        addBluepackWithdrawal,
+        deleteBluepackWithdrawal,
       }}
     >
       {children}
     </DataContext.Provider>
   );
 }
+  

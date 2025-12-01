@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import TransactionsPage from "./pages/TransactionsPage.jsx";
 import ModalPage from "./pages/ModalPage.jsx";
 import ReportsPage from "./pages/ReportsPage.jsx";
+import BluePackPage from "./pages/BluePackPage.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/modal" element={<ModalPage />} />
+        <Route path="/bluepack" element={<BluePackPage />} />
         <Route path="/reports" element={<ReportsPage />} />
       </Route>
 

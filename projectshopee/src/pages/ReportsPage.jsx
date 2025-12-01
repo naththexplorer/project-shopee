@@ -1,8 +1,5 @@
 // src/pages/ReportsPage.jsx
-// Halaman laporan & analitik penjualan.
-// - Menggunakan range waktu (1–360 hari & All time) mirip Dashboard
-// - Semua perhitungan berbasis transaksi per-item dari DataContext
-// - Tidak tergantung Firebase (bisa disambungkan nanti di DataContext)
+// Halaman laporan & analitik penjualan (per item).
 
 import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
@@ -15,7 +12,6 @@ import {
 // Opsi range hari untuk filter laporan
 const RANGE_OPTIONS = [
   { value: "1", label: "1 hari" },
-  { value: "2", label: "2 hari" },
   { value: "3", label: "3 hari" },
   { value: "7", label: "7 hari" },
   { value: "30", label: "30 hari" },
@@ -29,50 +25,100 @@ export default function ReportsPage() {
   const { transactions, loading } = useData();
   const [rangeDays, setRangeDays] = useState("30"); // default 30 hari terakhir
 
-  // Semua perhitungan laporan dilakukan di useMemo supaya efisien
   const {
-    filteredTx,
     summary,
     productStats,
     dailyStats,
+    metrics,
   } = useMemo(() => {
     const txAll = Array.isArray(transactions) ? transactions : [];
-    const now = Date.now();
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-    // === 1) Filter transaksi berdasarkan range ===
-    let filteredTx = txAll;
+    // Helper: ambil "tanggal harian" dalam ms (jam diset 00:00)
+    const getTxDayMs = (t) => {
+      // 1) Prioritas: field date ("YYYY-MM-DD")
+      if (t.date) {
+        const d = new Date(t.date + "T00:00:00");
+        if (!Number.isNaN(d.getTime())) {
+          return d.getTime();
+        }
+      }
+
+      // 2) Fallback: timestamp number
+      const ts = t.timestamp;
+      if (typeof ts === "number") {
+        const d = new Date(ts);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+      }
+
+      // 3) Fallback: Firestore Timestamp (punya toDate)
+      if (ts && typeof ts.toDate === "function") {
+        const d = ts.toDate();
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+      }
+
+      // 4) Kalau sama sekali nggak ada info
+      return null;
+    };
+
+    // Pasangkan transaksi dengan dayMs supaya tidak hitung ulang terus
+    const txWithDay = txAll.map((t) => ({
+      tx: t,
+      dayMs: getTxDayMs(t),
+    }));
+
+    // === 1) Filter transaksi berdasarkan range hari ===
+    let filteredPairs = txWithDay;
+
     if (rangeDays !== "all") {
-      const days = Number(rangeDays);
+      const days = Number(rangeDays) || 30;
 
-      // cutoff: N hari ke belakang dari hari ini (berdasarkan tanggal, bukan jam)
-      const cutoffDate = new Date();
-      cutoffDate.setHours(0, 0, 0, 0);
-      cutoffDate.setDate(cutoffDate.getDate() - (days - 1));
-      const cutoffMs = cutoffDate.getTime();
+      // Ambil hanya yang punya tanggal valid
+      const withValidDate = txWithDay.filter((x) => x.dayMs !== null);
 
-      filteredTx = txAll.filter((t) => {
-        if (!t.date) return true; // kalau tidak ada tanggal, anggap selalu masuk
-        const txDate = new Date(t.date + "T00:00:00");
-        return txDate.getTime() >= cutoffMs;
-      });
+      if (withValidDate.length > 0) {
+        // Anchor: tanggal TERBARU di data
+        const latestDayMs = Math.max(...withValidDate.map((x) => x.dayMs));
+        const cutoffDayMs = latestDayMs - (days - 1) * ONE_DAY_MS;
+
+        filteredPairs = txWithDay.filter(
+          (x) => x.dayMs !== null && x.dayMs >= cutoffDayMs
+        );
+      }
+      // Kalau tidak ada yang punya tanggal valid => biarin All time (filteredPairs = txWithDay)
     }
+
+    const filteredTx = filteredPairs.map((p) => p.tx);
 
     // === 2) Summary angka besar untuk periode ===
     let totalPenjualan = 0;
-    let totalTransaksi = 0;
     let totalShopeeFee = 0;
     let totalNetIncome = 0;
     let totalModal = 0;
     let totalProfit = 0;
     let totalBluePack = 0;
     let totalCempaka = 0;
+    let totalQty = 0;
+
+    const productMap = new Map();
+    const buyerMap = new Map();
+    const dailyMap = new Map();
 
     for (const t of filteredTx) {
       const sell = t.totalSellPrice || 0;
       const cost = t.totalCost || 0;
-      const profit = t.profit ?? (t.bluePack || 0) + (t.cempakaPack || 0);
+      const qty = t.actualQuantity || t.quantity || 0;
 
-      // fee Shopee: pakai field jika ada, kalau tidak asumsi 17%
+      const profitRaw =
+        t.profit ??
+        ((t.bluePack || 0) + (t.cempakaPack || 0)) ??
+        sell - cost;
+
+      const blue = t.bluePack ?? profitRaw * 0.4;
+      const cemp = t.cempakaPack ?? profitRaw * 0.6;
+
       const feePercent =
         typeof t.shopeeFeePercent === "number" ? t.shopeeFeePercent : 0.17;
       const fee = t.shopeeDiscount ?? sell * feePercent;
@@ -80,131 +126,155 @@ export default function ReportsPage() {
         t.netIncome ?? sell - (t.shopeeDiscount ?? sell * feePercent);
 
       totalPenjualan += sell;
-      totalTransaksi += 1;
       totalShopeeFee += fee;
       totalNetIncome += netIncome;
       totalModal += cost;
-      totalProfit += profit;
-      totalBluePack += t.bluePack ?? profit * 0.4;
-      totalCempaka += t.cempakaPack ?? profit * 0.6;
-    }
+      totalProfit += profitRaw;
+      totalBluePack += blue;
+      totalCempaka += cemp;
+      totalQty += qty;
 
-    const avgProfitPerTx =
-      totalTransaksi > 0 ? totalProfit / totalTransaksi : 0;
-
-    const summary = {
-      totalPenjualan,
-      totalTransaksi,
-      totalShopeeFee,
-      totalNetIncome,
-      totalModal,
-      totalProfit,
-      totalBluePack,
-      totalCempaka,
-      avgProfitPerTx,
-    };
-
-    // === 3) Analisis per produk dalam periode ===
-    const productMap = new Map();
-
-    for (const t of filteredTx) {
-      const key = t.productCode || t.productName || "UNKNOWN";
-      const sell = t.totalSellPrice || 0;
-      const qty = t.quantity || 0;
-      const profit = t.profit ?? (t.bluePack || 0) + (t.cempakaPack || 0);
-      const blue = t.bluePack ?? profit * 0.4;
-      const cemp = t.cempakaPack ?? profit * 0.6;
-
-      const existing =
-        productMap.get(key) || {
+      // ===== Analisis per produk =====
+      const productKey = t.productCode || t.productName || "UNKNOWN";
+      const existingProduct =
+        productMap.get(productKey) || {
           code: t.productCode || "-",
           name: t.productName || "Produk Tidak Dikenal",
           totalQty: 0,
           totalPenjualan: 0,
           totalProfit: 0,
           totalBluePack: 0,
-          totalCempaka: 0,
+          totalCempakaPack: 0,
           transaksiCount: 0,
         };
 
-      existing.totalQty += qty;
-      existing.totalPenjualan += sell;
-      existing.totalProfit += profit;
-      existing.totalBluePack += blue;
-      existing.totalCempaka += cemp;
-      existing.transaksiCount += 1;
+      existingProduct.totalQty += qty;
+      existingProduct.totalPenjualan += sell;
+      existingProduct.totalProfit += profitRaw;
+      existingProduct.totalBluePack += blue;
+      existingProduct.totalCempakaPack += cemp;
+      existingProduct.transaksiCount += 1;
 
-      productMap.set(key, existing);
-    }
+      productMap.set(productKey, existingProduct);
 
-    const productStats = Array.from(productMap.values()).map((p) => ({
-      ...p,
-      avgProfitPerUnit:
-        p.totalQty > 0 ? p.totalProfit / p.totalQty : 0,
-      shareOfSales:
-        totalPenjualan > 0 ? p.totalPenjualan / totalPenjualan : 0,
-    }));
+      // ===== Analisis per buyer (untuk metrik performa saja) =====
+      const buyerKey = t.buyerUsername || "Tanpa Username";
+      const existingBuyer =
+        buyerMap.get(buyerKey) || {
+          username: buyerKey,
+          transaksiCount: 0,
+          totalOmzet: 0,
+          totalProfit: 0,
+        };
 
-    // urutkan produk menurut total penjualan desc
-    productStats.sort((a, b) => b.totalPenjualan - a.totalPenjualan);
+      existingBuyer.transaksiCount += 1;
+      existingBuyer.totalOmzet += sell;
+      existingBuyer.totalProfit += profitRaw;
 
-    // === 4) Statistik per hari ===
-    const dailyMap = new Map();
+      buyerMap.set(buyerKey, existingBuyer);
 
-    for (const t of filteredTx) {
-      const dateKey = t.date || new Date(t.timestamp).toISOString().slice(0, 10);
-      const sell = t.totalSellPrice || 0;
-      const profit = t.profit ?? (t.bluePack || 0) + (t.cempakaPack || 0);
+      // ===== Analisis harian =====
+      const pair = txWithDay.find((p) => p.tx === t);
+      const dayMs = pair?.dayMs ?? null;
 
-      const existing =
+      const dateKey =
+        t.date ||
+        (dayMs !== null
+          ? new Date(dayMs).toISOString().slice(0, 10)
+          : "Tanpa Tanggal");
+
+      const existingDay =
         dailyMap.get(dateKey) || {
           date: dateKey,
-          totalPenjualan: 0,
-          totalProfit: 0,
           transaksiCount: 0,
+          totalOmzet: 0,
+          totalProfit: 0,
+          totalBluePack: 0,
+          totalCempakaPack: 0,
+          totalQty: 0,
         };
 
-      existing.totalPenjualan += sell;
-      existing.totalProfit += profit;
-      existing.transaksiCount += 1;
+      existingDay.transaksiCount += 1;
+      existingDay.totalOmzet += sell;
+      existingDay.totalProfit += profitRaw;
+      existingDay.totalBluePack += blue;
+      existingDay.totalCempakaPack += cemp;
+      existingDay.totalQty += qty;
 
-      dailyMap.set(dateKey, existing);
+      dailyMap.set(dateKey, existingDay);
     }
 
-    const dailyStats = Array.from(dailyMap.values()).sort(
-      (a, b) => new Date(a.date) - new Date(b.date)
+    const productStats = Array.from(productMap.values()).sort(
+      (a, b) => b.totalPenjualan - a.totalPenjualan
     );
 
-    return {
-      filteredTx,
-      summary,
-      productStats,
-      dailyStats,
+    const buyerStats = Array.from(buyerMap.values()).sort(
+      (a, b) => b.totalOmzet - a.totalOmzet
+    );
+
+    const dailyStats = Array.from(dailyMap.values()).sort((a, b) => {
+      const pa = Date.parse(a.date);
+      const pb = Date.parse(b.date);
+      if (!Number.isNaN(pa) && !Number.isNaN(pb)) return pa - pb;
+      return String(a.date).localeCompare(String(b.date));
+    });
+
+    const totalItems = filteredTx.length;
+    const totalBuyer = buyerMap.size;
+    const totalHariAktif = dailyMap.size || 1;
+
+    const avgOmzetPerTrans =
+      totalItems > 0 ? totalPenjualan / totalItems : 0;
+    const avgProfitPerTrans = totalItems > 0 ? totalProfit / totalItems : 0;
+    const avgProfitPerItem = totalQty > 0 ? totalProfit / totalQty : 0;
+    const avgTransPerDay = totalItems > 0 ? totalItems / totalHariAktif : 0;
+
+    const biggestBuyer = buyerStats[0] || null;
+
+    const metrics = {
+      avgOmzetPerTrans,
+      avgProfitPerTrans,
+      avgProfitPerItem,
+      avgTransPerDay,
+      biggestBuyer,
+      totalShopeeFee,
+      totalNetIncome,
     };
+
+    const summary = {
+      totalPenjualan,
+      totalProfit,
+      totalBluePack,
+      totalCempaka,
+      totalQty,
+      totalItems,
+      totalBuyer,
+    };
+
+    return { summary, productStats, dailyStats, metrics };
   }, [transactions, rangeDays]);
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6">
+      {/* HEADER + FILTER RANGE */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">
-            Laporan & Analisis
+          <h1 className="text-3xl font-extrabold text-slate-800 mb-1">
+            Laporan Penjualan
           </h1>
-          <p className="text-sm text-slate-600">
-            Ringkasan performa penjualan, laba, dan produk terlaris berdasarkan rentang waktu.
+          <p className="text-sm text-slate-600 max-w-xl">
+            Rekap omzet, laba, BluePack / CempakaPack, analisis produk, dan
+            metrik performa berdasarkan periode yang kamu pilih.
           </p>
         </div>
-
-        {/* Filter rentang waktu */}
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
-            Rentang Laporan:
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-slate-500">
+            Range waktu:
           </span>
           <select
             value={rangeDays}
             onChange={(e) => setRangeDays(e.target.value)}
-            className="border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition-colors"
+            className="border border-slate-300 rounded-2xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             {RANGE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -215,15 +285,18 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* SUMMARY CARDS */}
+      {/* RINGKASAN ANGKA BESAR */}
       <SummarySection summary={summary} loading={loading} />
 
-      {/* ANALISIS PER PRODUK */}
-      <ProductAnalysisSection
-        productStats={productStats}
-        totalPenjualan={summary.totalPenjualan}
-        loading={loading}
-      />
+      {/* PRODUK + METRIK PERFORMA */}
+      <div className="grid grid-cols-1 xl:grid-cols-[2fr,1.2fr] gap-6 items-start">
+        <ProductAnalysisSection
+          productStats={productStats}
+          totalPenjualan={summary.totalPenjualan}
+          loading={loading}
+        />
+        <MetricsSection metrics={metrics} loading={loading} />
+      </div>
 
       {/* RINGKASAN HARIAN */}
       <DailySummarySection dailyStats={dailyStats} loading={loading} />
@@ -233,7 +306,6 @@ export default function ReportsPage() {
 
 // ====================== SUB-KOMPONEN ======================
 
-// Bagian ringkasan angka besar untuk periode terpilih
 function SummarySection({ summary, loading }) {
   if (loading) {
     return (
@@ -246,146 +318,114 @@ function SummarySection({ summary, loading }) {
 
   const {
     totalPenjualan,
-    totalTransaksi,
-    totalShopeeFee,
-    totalNetIncome,
-    totalModal,
     totalProfit,
     totalBluePack,
     totalCempaka,
-    avgProfitPerTx,
+    totalQty,
+    totalItems,
   } = summary;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-      <h2 className="text-lg font-semibold text-slate-800 mb-4">
-        Ringkasan Periode
-      </h2>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        <SimpleStat
-          label="Total Penjualan"
-          value={formatRupiah(totalPenjualan)}
-          helper="Σ total harga jual"
-        />
-        <SimpleStat
-          label="Total Transaksi"
-          value={formatNumber(totalTransaksi)}
-          helper="Jumlah item transaksi"
-        />
-        <SimpleStat
-          label="Potongan Shopee"
-          value={formatRupiah(totalShopeeFee)}
-          helper="Approx. 17% + komponen lain"
-        />
-        <SimpleStat
-          label="Net Income"
-          value={formatRupiah(totalNetIncome)}
-          helper="Penjualan - potongan"
-        />
-        <SimpleStat
-          label="Modal Keluar"
-          value={formatRupiah(totalModal)}
-          helper="Σ totalCost"
-        />
-        <SimpleStat
-          label="Laba Bersih"
-          value={formatRupiah(totalProfit)}
-          helper="Net income - modal"
-        />
-        <SimpleStat
-          label="Laba BluePack"
-          value={formatRupiah(totalBluePack)}
-          helper="40% dari laba"
-        />
-        <SimpleStat
-          label="Laba CempakaPack"
-          value={formatRupiah(totalCempaka)}
-          helper="60% dari laba"
-        />
-        <div className="sm:col-span-2 lg:col-span-1">
-          <SimpleStat
-            label="Rata-rata Laba/Transaksi"
-            value={formatRupiah(avgProfitPerTx)}
-            helper="Laba per item transaksi"
-          />
-        </div>
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-6 gap-4">
+      <SummaryCard
+        label="Total Penjualan"
+        value={formatRupiah(totalPenjualan)}
+        helper="Omzet kotor dari transaksi"
+      />
+      <SummaryCard
+        label="Total Laba"
+        value={formatRupiah(totalProfit)}
+        helper="Laba bersih semua transaksi"
+      />
+      <SummaryCard
+        label="BluePack"
+        value={formatRupiah(totalBluePack)}
+        helper="Porsi laba untuk BluePack (40%)"
+      />
+      <SummaryCard
+        label="CempakaPack"
+        value={formatRupiah(totalCempaka)}
+        helper="Porsi laba untuk CempakaPack (60%)"
+      />
+      <SummaryCard
+        label="Qty Terjual"
+        value={formatNumber(totalQty)}
+        helper="Total unit barang terjual"
+      />
+      <SummaryCard
+        label="Transaksi"
+        value={formatNumber(totalItems)}
+        helper="Jumlah baris item (transaksi per item)"
+      />
     </div>
   );
 }
 
-// Tabel analisis per produk
 function ProductAnalysisSection({ productStats, totalPenjualan, loading }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-      <h2 className="text-lg font-semibold text-slate-800 mb-4">
-        Analisis Per Produk
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-slate-800">
+          Analisis Per Produk
+        </h2>
+        <p className="text-xs text-slate-500">
+          Diurutkan berdasarkan omzet tertinggi.
+        </p>
+      </div>
 
       {loading ? (
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-indigo-600" />
-          <p className="text-sm text-slate-500 mt-3">Memuat data produk…</p>
         </div>
       ) : productStats.length === 0 ? (
-        <div className="text-center py-8 text-slate-500">
-          Belum ada transaksi dalam rentang waktu ini.
-        </div>
+        <p className="text-sm text-slate-500">
+          Tidak ada transaksi pada periode ini.
+        </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-xs">
             <thead>
-              <tr className="text-left text-xs text-slate-600 border-b border-slate-200">
-                <th className="py-3 px-4 font-semibold">Produk</th>
-                <th className="py-3 px-4 font-semibold text-right">Qty</th>
-                <th className="py-3 px-4 font-semibold text-right">Penjualan</th>
-                <th className="py-3 px-4 font-semibold text-right">Laba</th>
-                <th className="py-3 px-4 font-semibold text-right">BluePack</th>
-                <th className="py-3 px-4 font-semibold text-right">Cempaka</th>
-                <th className="py-3 px-4 font-semibold text-right">Laba/Unit</th>
-                <th className="py-3 px-4 font-semibold text-right">%</th>
+              <tr className="border-b border-slate-200 text-slate-500">
+                <th className="text-left py-2 pr-3">Produk</th>
+                <th className="text-right py-2 pr-3">Qty</th>
+                <th className="text-right py-2 pr-3">Penjualan</th>
+                <th className="text-right py-2 pr-3">Laba</th>
+                <th className="text-right py-2 pr-3">% Omzet</th>
               </tr>
             </thead>
             <tbody>
-              {productStats.map((p) => (
-                <tr
-                  key={p.code}
-                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                >
-                  <td className="py-3 px-4">
-                    <div>
-                      <div className="font-medium text-slate-800">{p.name}</div>
-                      <div className="text-xs text-slate-500">{p.code}</div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-right font-medium text-slate-900">
-                    {formatNumber(p.totalQty)}
-                  </td>
-                  <td className="py-3 px-4 text-right font-medium text-slate-900">
-                    {formatRupiah(p.totalPenjualan)}
-                  </td>
-                  <td className="py-3 px-4 text-right font-medium text-slate-900">
-                    {formatRupiah(p.totalProfit)}
-                  </td>
-                  <td className="py-3 px-4 text-right font-medium text-slate-900">
-                    {formatRupiah(p.totalBluePack)}
-                  </td>
-                  <td className="py-3 px-4 text-right font-medium text-slate-900">
-                    {formatRupiah(p.totalCempaka)}
-                  </td>
-                  <td className="py-3 px-4 text-right font-medium text-slate-900">
-                    {formatRupiah(p.avgProfitPerUnit)}
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <span className="text-xs font-medium text-slate-600">
-                      {totalPenjualan > 0
-                        ? (p.shareOfSales * 100).toFixed(1) + "%"
-                        : "-"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {productStats.map((p) => {
+                const persen =
+                  totalPenjualan > 0
+                    ? (p.totalPenjualan / totalPenjualan) * 100
+                    : 0;
+
+                return (
+                  <tr
+                    key={p.code + p.name}
+                    className="border-b border-slate-100 hover:bg-slate-50"
+                  >
+                    <td className="py-2 pr-3">
+                      <p className="font-semibold text-slate-800">
+                        {p.name}
+                      </p>
+                      <p className="text-[11px] text-slate-500">{p.code}</p>
+                    </td>
+                    <td className="py-2 pr-3 text-right">
+                      {formatNumber(p.totalQty)}
+                    </td>
+                    <td className="py-2 pr-3 text-right">
+                      {formatRupiah(p.totalPenjualan)}
+                    </td>
+                    <td className="py-2 pr-3 text-right">
+                      {formatRupiah(p.totalProfit)}
+                    </td>
+                    <td className="py-2 pr-3 text-right">
+                      {persen.toFixed(1)}%
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -394,53 +434,150 @@ function ProductAnalysisSection({ productStats, totalPenjualan, loading }) {
   );
 }
 
-// Tabel ringkasan harian
+function MetricsSection({ metrics, loading }) {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 text-center">
+        <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-indigo-600" />
+      </div>
+    );
+  }
+
+  const {
+    avgOmzetPerTrans,
+    avgProfitPerTrans,
+    avgProfitPerItem,
+    avgTransPerDay,
+    biggestBuyer,
+  } = metrics;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+      <h2 className="text-lg font-semibold text-slate-800">
+        Metrik Performa
+      </h2>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div className="border border-slate-200 rounded-xl p-3">
+          <p className="text-[11px] text-slate-500">
+            Rata-rata omzet per transaksi
+          </p>
+          <p className="text-sm font-semibold text-slate-800 mt-1">
+            {formatRupiah(avgOmzetPerTrans)}
+          </p>
+        </div>
+
+        <div className="border border-slate-200 rounded-xl p-3">
+          <p className="text-[11px] text-slate-500">
+            Rata-rata laba per transaksi
+          </p>
+          <p className="text-sm font-semibold text-slate-800 mt-1">
+            {formatRupiah(avgProfitPerTrans)}
+          </p>
+        </div>
+
+        <div className="border border-slate-200 rounded-xl p-3">
+          <p className="text-[11px] text-slate-500">
+            Rata-rata laba per item
+          </p>
+          <p className="text-sm font-semibold text-slate-800 mt-1">
+            {formatRupiah(avgProfitPerItem)}
+          </p>
+        </div>
+
+        <div className="border border-slate-200 rounded-xl p-3">
+          <p className="text-[11px] text-slate-500">
+            Rata-rata transaksi per hari
+          </p>
+          <p className="text-sm font-semibold text-slate-800 mt-1">
+            {avgTransPerDay.toFixed(1)} transaksi/hari
+          </p>
+        </div>
+      </div>
+
+      <div className="border border-slate-200 rounded-xl p-3 text-xs">
+        <p className="text-[11px] text-slate-500 mb-1">
+          Buyer dengan omzet terbesar (di periode ini)
+        </p>
+        {biggestBuyer ? (
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-slate-800">
+                {biggestBuyer.username}
+              </p>
+              <p className="text-[11px] text-slate-500">
+                {biggestBuyer.transaksiCount} transaksi
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-slate-500">Total omzet</p>
+              <p className="font-semibold text-slate-800">
+                {formatRupiah(biggestBuyer.totalOmzet)}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-[11px] text-slate-500">
+            Belum ada data buyer untuk periode ini.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DailySummarySection({ dailyStats, loading }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-      <h2 className="text-lg font-semibold text-slate-800 mb-4">
-        Ringkasan Harian
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-slate-800">
+          Ringkasan Harian
+        </h2>
+        <p className="text-xs text-slate-500">
+          Omzet, laba, dan qty per tanggal.
+        </p>
+      </div>
 
       {loading ? (
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-indigo-600" />
-          <p className="text-sm text-slate-500 mt-3">Memuat data harian…</p>
         </div>
       ) : dailyStats.length === 0 ? (
-        <div className="text-center py-8 text-slate-500">
-          Belum ada transaksi dalam rentang waktu ini.
-        </div>
+        <p className="text-sm text-slate-500">
+          Tidak ada transaksi pada periode ini.
+        </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-xs">
             <thead>
-              <tr className="text-left text-xs text-slate-600 border-b border-slate-200">
-                <th className="py-3 px-4 font-semibold">Tanggal</th>
-                <th className="py-3 px-4 font-semibold text-right">Total Penjualan</th>
-                <th className="py-3 px-4 font-semibold text-right">Total Laba</th>
-                <th className="py-3 px-4 font-semibold text-right">Transaksi</th>
+              <tr className="border-b border-slate-200 text-slate-500">
+                <th className="text-left py-2 pr-3">Tanggal</th>
+                <th className="text-right py-2 pr-3">Transaksi</th>
+                <th className="text-right py-2 pr-3">Qty</th>
+                <th className="text-right py-2 pr-3">Omzet</th>
+                <th className="text-right py-2 pr-3">Laba</th>
               </tr>
             </thead>
             <tbody>
               {dailyStats.map((d) => (
                 <tr
                   key={d.date}
-                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                  className="border-b border-slate-100 hover:bg-slate-50"
                 >
-                  <td className="py-3 px-4 font-medium text-slate-800">
-                    {formatDate(d.date)}
+                  <td className="py-2 pr-3">
+                    {d.date ? formatDate(d.date) : "-"}
                   </td>
-                  <td className="py-3 px-4 text-right font-medium text-slate-900">
-                    {formatRupiah(d.totalPenjualan)}
+                  <td className="py-2 pr-3 text-right">
+                    {formatNumber(d.transaksiCount)}
                   </td>
-                  <td className="py-3 px-4 text-right font-medium text-slate-900">
+                  <td className="py-2 pr-3 text-right">
+                    {formatNumber(d.totalQty)}
+                  </td>
+                  <td className="py-2 pr-3 text-right">
+                    {formatRupiah(d.totalOmzet)}
+                  </td>
+                  <td className="py-2 pr-3 text-right">
                     {formatRupiah(d.totalProfit)}
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <span className="text-sm font-medium text-slate-700">
-                      {formatNumber(d.transaksiCount)}
-                    </span>
                   </td>
                 </tr>
               ))}
@@ -452,19 +589,14 @@ function DailySummarySection({ dailyStats, loading }) {
   );
 }
 
-// Simple Stat component
-function SimpleStat({ label, value, helper }) {
+function SummaryCard({ label, value, helper }) {
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
       <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
         {label}
       </p>
-      <p className="text-lg font-bold text-slate-900">
-        {value}
-      </p>
-      {helper && (
-        <p className="text-xs text-slate-500 mt-1">{helper}</p>
-      )}
+      <p className="text-lg font-bold text-slate-900">{value}</p>
+      {helper && <p className="text-xs text-slate-500 mt-1">{helper}</p>}
     </div>
   );
 }

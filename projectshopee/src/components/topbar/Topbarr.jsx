@@ -9,7 +9,7 @@ const TITLE_MAP = {
 };
 
 export default function Topbar({ currentPath, onToggleSidebar }) {
-  const title = TITLE_MAP[currentPath] || "Panel";
+  const title = TITLE_MAP[currentPath] || "Manajemen Uang";
 
   return (
     <header
@@ -108,7 +108,7 @@ export default function Topbar({ currentPath, onToggleSidebar }) {
               Admin
             </p>
             <p className="text-[10px] sm:text-xs text-slate-500">
-              BluePack
+              Bluepack
             </p>
           </div>
         </div>
