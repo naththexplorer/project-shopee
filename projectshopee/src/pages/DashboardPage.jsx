@@ -39,9 +39,7 @@ export default function DashboardPage() {
     );
 
     for (const t of txAll) {
-      const dateStr =
-        t.date ||
-        new Date(t.timestamp || Date.now()).toISOString().slice(0, 10);
+      const dateStr = t.date || new Date(t.timestamp || Date.now()).toISOString().slice(0, 10);
       const baseProfit = t.profit ?? (t.bluePack || 0) + (t.cempakaPack || 0);
       const blue = t.bluePack ?? baseProfit * 0.4;
       const cemp = t.cempakaPack ?? baseProfit * 0.6;
@@ -99,132 +97,132 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-6 lg:p-8 animate-fadeIn">
-      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 md:space-y-8">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Page Header */}
         <div className="px-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Beranda</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Dashboard</h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">
             Ringkasan penjualan dan pembagian laba
           </p>
         </div>
 
-        {/* Status Modal - Alert Box */}
-        <div className={`rounded-lg border p-4 sm:p-5 ${
-          modalSummary.isLunas
-            ? "bg-emerald-50 border-emerald-200"
-            : "bg-amber-50 border-amber-200"
-        }`}>
-          <div className="flex items-start gap-3">
+        {/* Status Modal Alert */}
+        <div
+          className={`rounded-lg border p-3 sm:p-4 ${
+            modalSummary.isLunas
+              ? "bg-emerald-50 border-emerald-200"
+              : "bg-amber-50 border-amber-200"
+          }`}
+        >
+          <div className="flex items-start gap-2 sm:gap-3">
             {modalSummary.isLunas ? (
-              <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 flex-shrink-0 mt-0.5" />
             )}
             <div className="flex-1 min-w-0">
-              <h3 className={`text-sm sm:text-base font-semibold mb-1 ${
+              <p className={`text-xs sm:text-sm font-medium ${
                 modalSummary.isLunas ? "text-emerald-900" : "text-amber-900"
               }`}>
-                {modalSummary.isLunas ? "Modal Sudah Lunas" : "Saldo Hutang Modal"}
-              </h3>
-              <p className={`text-xs sm:text-sm ${
+                {modalSummary.isLunas
+                  ? "Modal Lunas"
+                  : "Hutang Modal Belum Lunas"}
+              </p>
+              <p className={`text-xs mt-1 ${
                 modalSummary.isLunas ? "text-emerald-700" : "text-amber-700"
               }`}>
                 {modalSummary.isLunas
-                  ? "Laba periode sudah bisa diambil. Detail lengkap di menu Laporan CempakaPack."
+                  ? "Laba periode sudah bisa diambil. Detail lengkap di menu Riwayat Modal."
                   : `Belum boleh bagi laba periode. Sisa hutang: ${formatRupiah(modalSummary.saldoHutangModal)}`}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Pembagian Laba Hari Ini & Kemarin */}
+        {/* Today's Summary Cards */}
         <div>
           <h2 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4 px-1">
-            Pembagian Laba
+            Laba Hari Ini
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            {/* BluePack */}
-            <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="p-2 sm:p-2.5 bg-blue-100 rounded-lg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            {/* BluePack Card */}
+            <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                     <Package className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                   </div>
                   <div>
                     <p className="text-xs sm:text-sm font-medium text-slate-600">BluePack (40%)</p>
-                    <p className="text-lg sm:text-2xl font-bold text-slate-900 tabular-nums mt-0.5 sm:mt-1">
-                      {formatRupiah(bluePackToday)}
-                    </p>
                   </div>
                 </div>
               </div>
-              <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm pt-3 sm:pt-4 border-t border-slate-100">
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Hari Ini</span>
-                  <span className="font-semibold text-slate-900 tabular-nums">{formatRupiah(bluePackToday)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Kemarin</span>
-                  <span className="font-semibold text-slate-900 tabular-nums">{formatRupiah(bluePackYesterday)}</span>
-                </div>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 tabular-nums">
+                {formatRupiah(bluePackToday)}
+              </p>
+              <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
+                <TrendingUp className="w-3 h-3" />
+                <span>Hari ini</span>
               </div>
             </div>
 
-            {/* CempakaPack */}
-            <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="p-2 sm:p-2.5 bg-purple-100 rounded-lg">
+            {/* CempakaPack Card */}
+            <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                     <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
                   </div>
                   <div>
                     <p className="text-xs sm:text-sm font-medium text-slate-600">CempakaPack (60%)</p>
-                    <p className="text-lg sm:text-2xl font-bold text-slate-900 tabular-nums mt-0.5 sm:mt-1">
-                      {formatRupiah(cempakaToday)}
-                    </p>
                   </div>
                 </div>
               </div>
-              <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm pt-3 sm:pt-4 border-t border-slate-100">
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Hari Ini</span>
-                  <span className="font-semibold text-slate-900 tabular-nums">{formatRupiah(cempakaToday)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Kemarin</span>
-                  <span className="font-semibold text-slate-900 tabular-nums">{formatRupiah(cempakaYesterday)}</span>
-                </div>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 tabular-nums">
+                {formatRupiah(cempakaToday)}
+              </p>
+              <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
+                <TrendingUp className="w-3 h-3" />
+                <span>Hari ini</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Top 5 Produk Terlaris */}
-        <div className="bg-white rounded-lg border border-slate-200">
+        {/* Top Products */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Produk Terlaris</h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">Top 5 produk berdasarkan quantity terjual (all time)</p>
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">
+              Top 5 Produk Terlaris
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">
+              Berdasarkan quantity terjual (all time)
+            </p>
           </div>
           <div className="p-4 sm:p-6">
-            <TopProductsTable products={topProducts} />
+            <TopProductsTable products={topProducts} loading={loading} />
           </div>
         </div>
 
-        {/* Transaksi Terbaru */}
-        <div className="bg-white rounded-lg border border-slate-200">
+        {/* Recent Transactions */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Transaksi Terbaru</h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">5 transaksi item terakhir yang kamu input (all time)</p>
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">
+              Transaksi Terakhir
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">
+              5 transaksi terakhir (all time)
+            </p>
           </div>
+
           <div className="p-4 sm:p-6">
             {loading ? (
-              <div className="flex items-center justify-center py-12">
+              <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-                <span className="ml-3 text-sm text-slate-600">Memuat data...</span>
               </div>
             ) : recentTransactions.length === 0 ? (
-              <div className="text-center py-12">
-                <Receipt className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <div className="text-center py-8">
+                <Receipt className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-sm text-slate-500">Belum ada transaksi tercatat</p>
               </div>
             ) : (
@@ -248,7 +246,7 @@ export default function DashboardPage() {
                         <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase whitespace-nowrap">
                           Total
                         </th>
-                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase">
+                        <th className="sticky right-0 z-10 bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase">
                           Laba
                         </th>
                       </tr>
@@ -260,13 +258,19 @@ export default function DashboardPage() {
                             {t.date ? formatDate(t.date) : "-"}
                           </td>
                           <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
-                            <p className="text-xs sm:text-sm font-medium text-slate-900">{t.buyerUsername || "-"}</p>
+                            <p className="text-xs sm:text-sm font-medium text-slate-900">
+                              {t.buyerUsername || "-"}
+                            </p>
                             {t.notes && (
-                              <p className="text-xs text-slate-500 truncate max-w-[150px]">{t.notes}</p>
+                              <p className="text-xs text-slate-500 truncate max-w-[120px] sm:max-w-[150px]">
+                                {t.notes}
+                              </p>
                             )}
                           </td>
                           <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
-                            <p className="text-xs sm:text-sm font-medium text-slate-900">{t.productName || "-"}</p>
+                            <p className="text-xs sm:text-sm font-medium text-slate-900">
+                              {t.productName || "-"}
+                            </p>
                             <p className="text-xs text-slate-500">{t.productCode}</p>
                           </td>
                           <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-slate-900">
@@ -275,7 +279,7 @@ export default function DashboardPage() {
                           <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-slate-900 whitespace-nowrap">
                             {formatRupiah(t.totalSellPrice || 0)}
                           </td>
-                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-emerald-600 whitespace-nowrap">
+                          <td className="sticky right-0 z-10 bg-white hover:bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-emerald-600 whitespace-nowrap">
                             {formatRupiah(t.profit || 0)}
                           </td>
                         </tr>

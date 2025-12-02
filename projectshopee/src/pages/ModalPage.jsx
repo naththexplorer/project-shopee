@@ -29,6 +29,7 @@ export default function ModalPage() {
     const totalModalKeluar = txAll.reduce((sum, t) => sum + (t.totalCost || 0), 0);
     const totalWithdrawAyah = wd.reduce((sum, w) => sum + (w.amount || 0), 0);
     const saldoHutangModal = totalModalKeluar - totalWithdrawAyah;
+
     const totalCempakaProfit = filteredTx.reduce((sum, t) => sum + (t.cempakaPack || 0), 0);
 
     const byDate = new Map();
@@ -71,7 +72,6 @@ export default function ModalPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const numAmount = Number(amount);
-
     if (!numAmount || numAmount <= 0) {
       toast.error("Jumlah harus lebih dari nol");
       return;
@@ -88,7 +88,6 @@ export default function ModalPage() {
         notes: notes.trim(),
         timestamp: Date.now(),
       });
-
       toast.success("Pengembalian modal berhasil dicatat!");
       setAmount("");
       setNotes("");
@@ -115,162 +114,136 @@ export default function ModalPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-6 lg:p-8 animate-fadeIn">
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        {/* Page Header */}
         <div className="px-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Laporan CempakaPack</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Riwayat Modal</h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">
             Kelola modal usaha dan laba CempakaPack (60% dari laba bersih)
           </p>
         </div>
 
-        {/* Filter Bulan */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6">
-          <div className="flex items-center gap-2 mb-3 sm:mb-4">
-            <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
-            <h2 className="text-sm sm:text-base font-semibold text-slate-900">Filter Berdasarkan Bulan</h2>
-          </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-            <select
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
-              className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">Semua Waktu</option>
-              {cempakaData.availableMonths.map((month) => (
-                <option key={month} value={month}>
-                  {new Date(month + "-01").toLocaleDateString("id-ID", {
-                    year: "numeric",
-                    month: "long",
-                  })}
-                </option>
-              ))}
-            </select>
-            {filterMonth && (
-              <button
-                onClick={() => setFilterMonth("")}
-                className="px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 whitespace-nowrap"
-              >
-                Hapus filter
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Status Modal + Laba */}
+        {/* Status Alert */}
         <div
-          className={`rounded-lg border p-4 sm:p-6 shadow-sm ${
-            cempakaData.isLunas ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"
+          className={`rounded-lg border p-3 sm:p-4 ${
+            cempakaData.isLunas
+              ? "bg-emerald-50 border-emerald-200"
+              : "bg-amber-50 border-amber-200"
           }`}
         >
-          <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
-            <div className={`p-2 sm:p-3 rounded-lg ${cempakaData.isLunas ? "bg-emerald-100" : "bg-amber-100"}`}>
-              <Wallet
-                className={`w-5 h-5 sm:w-6 sm:h-6 ${
-                  cempakaData.isLunas ? "text-emerald-600" : "text-amber-600"
-                }`}
-              />
-            </div>
-            <div className="flex-1">
-              <h2
-                className={`text-base sm:text-xl font-bold mb-1 ${
-                  cempakaData.isLunas ? "text-emerald-900" : "text-amber-900"
-                }`}
-              >
-                {cempakaData.isLunas ? "Modal Sudah Lunas" : "Saldo Hutang Modal"}
-              </h2>
-              <p
-                className={`text-xs sm:text-sm ${
-                  cempakaData.isLunas ? "text-emerald-700" : "text-amber-700"
-                }`}
-              >
+          <div className="flex items-start gap-2 sm:gap-3">
+            {cempakaData.isLunas ? (
+              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+            ) : (
+              <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className={`text-xs sm:text-sm font-medium ${
+                cempakaData.isLunas ? "text-emerald-900" : "text-amber-900"
+              }`}>
+                {cempakaData.isLunas ? "Modal Sudah Lunas" : "Modal Belum Lunas"}
+              </p>
+              <p className={`text-xs mt-1 ${
+                cempakaData.isLunas ? "text-emerald-700" : "text-amber-700"
+              }`}>
                 {cempakaData.isLunas
                   ? "Semua modal usaha sudah dikembalikan. Laba periode boleh dibagi."
                   : "Modal usaha harus lunas dulu sebelum laba periode boleh diambil."}
               </p>
             </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-white rounded-lg p-3 sm:p-4 border border-slate-200">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
-                <p className="text-xs font-medium text-slate-600 uppercase">Modal Keluar</p>
-              </div>
-              <p className="text-lg sm:text-2xl font-bold text-slate-900 tabular-nums">
-                {formatRupiah(cempakaData.totalModalKeluar)}
+        {/* Summary Cards - 4 cols → 2 cols mobile */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 sm:p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingDown className="w-4 h-4 text-red-600" />
+              <p className="text-xs font-medium text-slate-600">Modal Keluar</p>
+            </div>
+            <p className="text-base sm:text-lg md:text-xl font-bold text-slate-900 tabular-nums break-words">
+              {formatRupiah(cempakaData.totalModalKeluar)}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 sm:p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
+              <p className="text-xs font-medium text-slate-600">Dikembalikan</p>
+            </div>
+            <p className="text-base sm:text-lg md:text-xl font-bold text-slate-900 tabular-nums break-words">
+              {formatRupiah(cempakaData.totalWithdrawAyah)}
+            </p>
+          </div>
+
+          <div className={`rounded-lg border shadow-sm p-3 sm:p-4 ${
+            cempakaData.isLunas
+              ? "bg-emerald-50 border-emerald-200"
+              : "bg-amber-50 border-amber-200"
+          }`}>
+            <div className="flex items-center gap-2 mb-2">
+              <Wallet className={`w-4 h-4 ${
+                cempakaData.isLunas ? "text-emerald-600" : "text-amber-600"
+              }`} />
+              <p className={`text-xs font-medium ${
+                cempakaData.isLunas ? "text-emerald-700" : "text-amber-700"
+              }`}>
+                Sisa Modal
               </p>
             </div>
+            <p className={`text-base sm:text-lg md:text-xl font-bold tabular-nums break-words ${
+              cempakaData.isLunas ? "text-emerald-900" : "text-amber-900"
+            }`}>
+              {formatRupiah(Math.max(0, cempakaData.saldoHutangModal))}
+            </p>
+          </div>
 
-            <div className="bg-white rounded-lg p-3 sm:p-4 border border-slate-200">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
-                <p className="text-xs font-medium text-slate-600 uppercase">Dikembalikan</p>
-              </div>
-              <p className="text-lg sm:text-2xl font-bold text-emerald-600 tabular-nums">
-                {formatRupiah(cempakaData.totalWithdrawAyah)}
-              </p>
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 shadow-sm p-3 sm:p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-4 h-4 text-purple-600" />
+              <p className="text-xs font-medium text-purple-700">Laba Bersih</p>
             </div>
-
-            <div className="bg-white rounded-lg p-3 sm:p-4 border border-slate-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
-                <p className="text-xs font-medium text-slate-600 uppercase">Sisa Hutang</p>
-              </div>
-              <p
-                className={`text-lg sm:text-2xl font-bold tabular-nums ${
-                  cempakaData.isLunas ? "text-emerald-600" : "text-amber-600"
-                }`}
-              >
-                {formatRupiah(Math.max(0, cempakaData.saldoHutangModal))}
-              </p>
-            </div>
-
-            <div className="bg-white rounded-lg p-3 sm:p-4 border border-purple-200 col-span-2 lg:col-span-1">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />
-                <p className="text-xs font-medium text-purple-700 uppercase">Laba CempakaPack</p>
-              </div>
-              <p className="text-lg sm:text-2xl font-bold text-purple-600 tabular-nums">
-                {formatRupiah(cempakaData.totalCempakaProfit)}
-              </p>
-              <p className="text-xs text-purple-600 mt-1">60% dari laba bersih</p>
-            </div>
+            <p className="text-base sm:text-lg md:text-xl font-bold text-purple-900 tabular-nums break-words">
+              {formatRupiah(cempakaData.totalCempakaProfit)}
+            </p>
+            <p className="text-xs text-purple-600 mt-1">60% dari laba</p>
           </div>
         </div>
 
-        {/* Form Pengembalian Modal */}
+        {/* Form Input - 3 cols → 1 col mobile */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Catat Penarikan Saldo Penjual</h2>
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">
+              Catat Pengembalian Modal
+            </h2>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-4 sm:p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
-                  Jumlah <span className="text-red-500">*</span>
+                  Jumlah (Rp) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="contoh: 500000"
-                  min="1"
-                  step="1"
-                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="0"
                   required
+                  min="1"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
 
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
-                  Tanggal Penarikan <span className="text-red-500">*</span>
+                  Tanggal <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   required
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
 
@@ -282,8 +255,8 @@ export default function ModalPage() {
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Metode pembayaran, referensi..."
-                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Catatan..."
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -295,27 +268,29 @@ export default function ModalPage() {
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white font-medium text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                Catat Pengembalian
+                <span className="hidden sm:inline">Catat Pengembalian</span>
+                <span className="sm:hidden">Catat</span>
               </button>
             </div>
           </form>
         </div>
 
-        {/* Riwayat Pengembalian Modal */}
+        {/* Withdrawal History Table */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Riwayat Penarikan</h2>
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">
+              Riwayat Penarikan
+            </h2>
           </div>
 
           <div className="p-4 sm:p-6">
             {loading ? (
-              <div className="flex items-center justify-center py-12">
+              <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-                <span className="ml-3 text-sm text-slate-600">Memuat data...</span>
               </div>
             ) : cempakaData.sortedWithdrawals.length === 0 ? (
-              <div className="text-center py-12">
-                <Wallet className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <div className="text-center py-8">
+                <Wallet className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-sm text-slate-500">Belum ada data pengembalian modal</p>
               </div>
             ) : (
@@ -324,7 +299,7 @@ export default function ModalPage() {
                   <table className="min-w-full divide-y divide-slate-200">
                     <thead>
                       <tr className="bg-slate-50">
-                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">
+                        <th className="sticky left-0 z-10 bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">
                           Tanggal
                         </th>
                         <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase whitespace-nowrap">
@@ -333,7 +308,7 @@ export default function ModalPage() {
                         <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">
                           Catatan
                         </th>
-                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-slate-600 uppercase">
+                        <th className="sticky right-0 z-10 bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-slate-600 uppercase">
                           Aksi
                         </th>
                       </tr>
@@ -341,16 +316,16 @@ export default function ModalPage() {
                     <tbody className="divide-y divide-slate-100 bg-white">
                       {cempakaData.sortedWithdrawals.map((w) => (
                         <tr key={w.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-900 whitespace-nowrap">
+                          <td className="sticky left-0 z-10 bg-white hover:bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-600 whitespace-nowrap">
                             {w.date ? formatDate(w.date) : "-"}
                           </td>
                           <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-emerald-600 whitespace-nowrap">
                             {formatRupiah(w.amount || 0)}
                           </td>
-                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-600">
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-700">
                             {w.notes || "-"}
                           </td>
-                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-center">
+                          <td className="sticky right-0 z-10 bg-white hover:bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-center">
                             <button
                               onClick={() => handleDelete(w.id)}
                               className="p-1.5 sm:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -369,22 +344,45 @@ export default function ModalPage() {
           </div>
         </div>
 
-        {/* Breakdown Harian */}
+        {/* Filter Month */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <label className="text-xs sm:text-sm font-medium text-slate-700 flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              <span>Filter Bulan:</span>
+            </label>
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="flex-1 sm:flex-none sm:w-48 px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">Semua Periode</option>
+              {cempakaData.availableMonths.map((m) => (
+                <option key={m} value={m}>
+                  {new Date(m + "-01").toLocaleDateString("id-ID", { year: "numeric", month: "long" })}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Daily Breakdown CempakaPack */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Breakdown Harian</h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">Laba CempakaPack per hari</p>
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">
+              Laba CempakaPack per Hari
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">
+              {filterMonth
+                ? `Periode: ${new Date(filterMonth + "-01").toLocaleDateString("id-ID", { year: "numeric", month: "long" })}`
+                : "Semua periode"}
+            </p>
           </div>
 
           <div className="p-4 sm:p-6">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-                <span className="ml-3 text-sm text-slate-600">Memuat data...</span>
-              </div>
-            ) : cempakaData.dailyBreakdown.length === 0 ? (
-              <div className="text-center py-12">
-                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            {cempakaData.dailyBreakdown.length === 0 ? (
+              <div className="text-center py-8">
+                <Calendar className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-sm text-slate-500">Tidak ada data CempakaPack di periode terpilih</p>
               </div>
             ) : (
@@ -393,45 +391,44 @@ export default function ModalPage() {
                   <table className="min-w-full divide-y divide-slate-200">
                     <thead>
                       <tr className="bg-slate-50">
-                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">
+                        <th className="sticky left-0 z-10 bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">
                           Tanggal
                         </th>
                         <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase">
                           Transaksi
                         </th>
-                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase whitespace-nowrap">
-                          Laba CempakaPack
+                        <th className="sticky right-0 z-10 bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase whitespace-nowrap">
+                          Laba Cempaka
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                      {cempakaData.dailyBreakdown.map((d) => (
-                        <tr key={d.date} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-slate-900 whitespace-nowrap">
+                      {cempakaData.dailyBreakdown.map((d, index) => (
+                        <tr key={index} className="hover:bg-slate-50 transition-colors">
+                          <td className="sticky left-0 z-10 bg-white hover:bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-600 whitespace-nowrap">
                             {formatDate(d.date)}
                           </td>
-                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm text-slate-600">
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-slate-900">
                             {d.transactions} item
                           </td>
-                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-purple-600 whitespace-nowrap">
+                          <td className="sticky right-0 z-10 bg-white hover:bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-purple-600 whitespace-nowrap">
                             {formatRupiah(d.cempakaPack)}
                           </td>
                         </tr>
                       ))}
-                    </tbody>
-                    <tfoot className="border-t-2 border-slate-300">
-                      <tr className="bg-slate-50">
-                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold text-slate-900">
+                      {/* Total Row */}
+                      <tr className="bg-slate-50 font-bold">
+                        <td className="sticky left-0 z-10 bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-900">
                           Total
                         </td>
-                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-bold text-slate-900">
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm text-slate-900">
                           {cempakaData.transactionCount} item
                         </td>
-                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-bold text-purple-600 whitespace-nowrap">
+                        <td className="sticky right-0 z-10 bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm text-purple-600 whitespace-nowrap">
                           {formatRupiah(cempakaData.totalCempakaProfit)}
                         </td>
                       </tr>
-                    </tfoot>
+                    </tbody>
                   </table>
                 </div>
               </div>
@@ -439,10 +436,11 @@ export default function ModalPage() {
           </div>
         </div>
 
+        {/* Info Footer */}
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 sm:p-4">
-          <h3 className="text-xs sm:text-sm font-semibold text-purple-900 mb-2">Tentang CempakaPack</h3>
           <p className="text-xs sm:text-sm text-purple-700">
-            CempakaPack menerima 60% dari laba bersih setiap transaksi. Modal usaha harus dikembalikan dulu sebelum laba periode boleh diambil.
+            💡 <strong>Info:</strong> CempakaPack menerima 60% dari laba bersih setiap transaksi.
+            Modal usaha harus dikembalikan dulu sebelum laba periode boleh diambil.
           </p>
         </div>
       </div>

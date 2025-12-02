@@ -77,11 +77,12 @@ export default function Sidebarr({ isOpen, onClose }) {
         </div>
       </aside>
 
-      {/* Overlay untuk mobile */}
+      {/* Overlay untuk mobile - FIX: opacity 30% (lebih terang) */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-black/30 z-30 lg:hidden animate-fadeIn"
           onClick={onClose}
+          aria-hidden="true"
         />
       )}
     </>
