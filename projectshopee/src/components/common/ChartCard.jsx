@@ -1,15 +1,11 @@
-// src/components/common/ChartCard.jsx
-// Wrapper khusus chart: sekarang placeholder, nanti bisa diisi Recharts.
-
-import SectionCard from "./SectionCard.jsx";
-
-export default function ChartCard({ title, subtitle, right, children }) {
+// src/components/dashboard/ChartCard.jsx
+export default function ChartCard({ title, children, className = "" }) {
   return (
-    <SectionCard title={title} subtitle={subtitle} right={right}>
-      <div className="h-52 flex items-center justify-center text-xs text-slate-400">
-        {/* Anak "children" di sini nanti diganti dengan <Recharts /> */}
-        {children || "[Chart akan ditampilkan di sini]"}
-      </div>
-    </SectionCard>
+    <div className={`bg-white rounded-xl border border-slate-200 shadow-card p-6 ${className}`}>
+      {title && (
+        <h3 className="text-base font-semibold text-slate-900 mb-4">{title}</h3>
+      )}
+      <div>{children}</div>
+    </div>
   );
 }

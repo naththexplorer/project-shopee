@@ -1,115 +1,44 @@
-// src/components/topbar/Topbarr.jsx
-import { Search, Menu } from "lucide-react";
+// src/components/layout/Topbarr.jsx
+import { Menu, Bell, Search, User } from "lucide-react";
 
-const TITLE_MAP = {
-  "/dashboard": "Dashboard",
-  "/transactions": "Transaksi",
-  "/modal": "Manajemen Uang",
-  "/reports": "Riwayat Laporan",
-};
-
-export default function Topbar({ currentPath, onToggleSidebar }) {
-  const title = TITLE_MAP[currentPath] || "Manajemen Uang";
-
+export default function Topbarr({ onMenuClick }) {
   return (
-    <header
-      className="
-        h-16 sm:h-20
-        border-b border-slate-200/80
-        bg-white/80 backdrop-blur-xl
-        flex items-center justify-between
-        px-3 sm:px-6 md:px-8
-        sticky top-0 z-30
-        shadow-sm
-      "
-    >
-      {/* Kiri: menu mobile + title */}
-      <div className="flex items-center gap-3">
-        {/* Hamburger – hanya mobile */}
-        <button
-          type="button"
-          onClick={onToggleSidebar}
-          className="
-            inline-flex md:hidden items-center justify-center
-            h-9 w-9 rounded-xl
-            border border-slate-200
-            bg-white
-            text-slate-700
-            shadow-sm
-            hover:border-indigo-400 hover:text-indigo-600 hover:shadow-md
-            transition-all
-          "
-          aria-label="Buka menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+    <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
+      <div className="flex items-center justify-between h-16 px-4 lg:px-6">
+        {/* Left: Hamburger + Logo */}
+        <div className="flex items-center gap-3">
+          {/* Hamburger - Only visible on mobile */}
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            aria-label="Toggle menu"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
 
-        {/* Title */}
-        <h1 className="
-          text-xl sm:text-2xl md:text-3xl
-          font-extrabold
-          bg-gradient-to-r from-indigo-600 to-violet-600
-          bg-clip-text text-transparent
-          truncate max-w-[160px] sm:max-w-none
-        ">
-          {title}
-        </h1>
-      </div>
-
-      {/* Kanan: search + profile */}
-      <div className="flex items-center gap-3 sm:gap-4">
-        {/* Search – tampil di >= sm */}
-        <div
-          className="
-            hidden sm:flex items-center gap-3
-            px-3 sm:px-4 py-2.5
-            rounded-2xl
-            bg-slate-100/80
-            backdrop-blur-sm
-            border border-slate-200/50
-            hover:border-indigo-300 hover:bg-white/90
-            focus-within:border-indigo-400
-            focus-within:ring-4 focus-within:ring-indigo-100
-            transition-all duration-300
-            shadow-sm hover:shadow-md
-          "
-        >
-          <Search className="h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Cari transaksi / buyer / produk..."
-            className="
-              bg-transparent text-sm outline-none
-              w-32 md:w-64
-              text-slate-700 placeholder:text-slate-400
-            "
-          />
+          {/* Menu Title */}
+          <span className="font-bold text-slate-900 text-lg hidden sm:block">
+            Rekap Shopee
+          </span>
         </div>
 
-        {/* Mini profile */}
-        <div
-          className="
-            flex items-center gap-2 px-3 sm:px-3.5 py-2
-            rounded-2xl
-            bg-gradient-to-r from-indigo-50 to-violet-50
-            border border-indigo-100
-            hover:border-indigo-300 hover:shadow-lg hover:-translate-y-0.5
-            transition-all duration-300
-            cursor-default
-          "
-        >
-          <img
-            src="/bluepacklogo.jpg"
-            alt="Logo BluePack"
-            className="h-7 w-7 rounded-xl object-contain"
-          />
-          <div className="hidden sm:block">
-            <p className="text-xs sm:text-sm font-bold text-slate-800">
-              Admin
-            </p>
-            <p className="text-[10px] sm:text-xs text-slate-500">
-              Bluepack
-            </p>
+        {/* Right: User Info */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Bell Icon - hidden on small mobile */}
+          <button className="hidden sm:flex p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors relative">
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          </button>
+
+          {/* User Profile */}
+          <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-indigo-100 rounded-full flex items-center justify-center">
+              <User className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+            </div>
+            <div className="hidden md:block">
+              <p className="text-sm font-semibold text-slate-900">Admin</p>
+              <p className="text-xs text-slate-500">Pemilik Toko</p>
+            </div>
           </div>
         </div>
       </div>

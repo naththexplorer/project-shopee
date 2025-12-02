@@ -1,13 +1,9 @@
 // src/pages/DashboardPage.jsx
-
 import { useMemo } from "react";
 import { useData } from "../context/DataContext.jsx";
-import TodaySummaryRow from "../components/dashboard/TodaySummaryRow.jsx";
-import {
-  formatRupiah,
-  formatNumber,
-  formatDate,
-} from "../utils/formatters.js";
+import TopProductsTable from "../components/dashboard/TopProductsTable.jsx";
+import { formatRupiah, formatNumber, formatDate } from "../utils/formatters.js";
+import { Receipt, Loader2, TrendingUp, Package, Wallet, AlertCircle, CheckCircle } from "lucide-react";
 
 export default function DashboardPage() {
   const { transactions, withdrawals, loading } = useData();
@@ -46,9 +42,7 @@ export default function DashboardPage() {
       const dateStr =
         t.date ||
         new Date(t.timestamp || Date.now()).toISOString().slice(0, 10);
-
-      const baseProfit =
-        t.profit ?? (t.bluePack || 0) + (t.cempakaPack || 0);
+      const baseProfit = t.profit ?? (t.bluePack || 0) + (t.cempakaPack || 0);
       const blue = t.bluePack ?? baseProfit * 0.4;
       const cemp = t.cempakaPack ?? baseProfit * 0.6;
 
@@ -63,14 +57,12 @@ export default function DashboardPage() {
       totalModalKeluar += t.totalCost || 0;
 
       const key = t.productCode || t.productName || "UNKNOWN";
-      const existing =
-        byProduct.get(key) || {
-          code: t.productCode || "-",
-          name: t.productName || "Produk Tidak Dikenal",
-          quantity: 0,
-          revenue: 0,
-        };
-
+      const existing = byProduct.get(key) || {
+        code: t.productCode || "-",
+        name: t.productName || "Produk Tidak Dikenal",
+        quantity: 0,
+        revenue: 0,
+      };
       existing.quantity += t.quantity || 0;
       existing.revenue += t.totalSellPrice || 0;
       byProduct.set(key, existing);
@@ -106,262 +98,196 @@ export default function DashboardPage() {
   }, [transactions, withdrawals]);
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Header with premium styling */}
-      <div className="relative">
-        <div className="absolute -top-4 -left-4 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl" />
-        <div className="absolute -top-4 -right-4 w-32 h-32 bg-violet-200/30 rounded-full blur-3xl" />
-        <div className="relative">
-          <h1 className="text-3xl font-extrabold text-slate-800 mb-2">
-            Ringkasan Penjualan
-          </h1>
-          <p className="text-base text-slate-600">
-            Gambaran singkat tentang penjualan Shopee, laba, dan
-            modal.
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-6 lg:p-8 animate-fadeIn">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 md:space-y-8">
+        {/* Page Header */}
+        <div className="px-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Beranda</h1>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
+            Ringkasan penjualan dan pembagian laba
           </p>
         </div>
-      </div>
 
-      {/* Ringkasan hari ini */}
-      <TodaySummaryRow />
-
-      {/* Laba harian BluePack & CempakaPack */}
-           {/* Laba harian Toko */}
-      <div className="bg-gradient-to-br from-white to-indigo-50/30 rounded-3xl shadow-lg shadow-indigo-100/50 border border-indigo-100/50 p-7 hover:shadow-xl hover:shadow-indigo-200/50 transition-all duration-500">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">
-              Laba Harian Toko
-            </h2>
-            <p className="text-sm text-slate-600">
-              Laba bersih yang sudah dibagi 40% / 60% berdasarkan tanggal
-              transaksi hari ini dan kemarin (per item).
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <MiniStat
-            label="Laba BluePack - Hari Ini"
-            value={formatRupiah(bluePackToday)}
-            helper="Akumulasi bagian BluePack dari transaksi hari ini"
-            color="blue"
-          />
-          <MiniStat
-            label="Laba BluePack - Kemarin"
-            value={formatRupiah(bluePackYesterday)}
-            helper="Akumulasi bagian BluePack dari transaksi kemarin"
-            color="blue"
-            subdued
-          />
-          <MiniStat
-            label="Laba CempakaPack - Hari Ini"
-            value={formatRupiah(cempakaToday)}
-            helper="Akumulasi bagian CempakaPack dari transaksi hari ini"
-            color="purple"
-          />
-          <MiniStat
-            label="Laba CempakaPack - Kemarin"
-            value={formatRupiah(cempakaYesterday)}
-            helper="Akumulasi bagian CempakaPack dari transaksi kemarin"
-            color="purple"
-            subdued
-          />
-        </div>
-      </div>
-
-      {/* Status modal + analitik */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Status modal */}
-        <div className="bg-white rounded-3xl shadow-lg border border-slate-200/50 p-7 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-indigo-100/50 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
-
-          <div className="relative">
-            <h2 className="text-lg font-bold text-slate-800 mb-1 flex items-center">
-              Status Modal (All Time)
-            </h2>
-            <p className="text-xs text-slate-600 mb-4">
-              Rule: laba periode hanya boleh dibagi jika modal sudah lunas.
-            </p>
-
-            <div
-              className={`inline-flex items-center px-4 py-2 rounded-2xl text-xs font-bold mb-5 shadow-md ${
-                modalSummary.isLunas
-                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white"
-                  : "bg-gradient-to-r from-rose-500 to-pink-500 text-white"
-              }`}
-            >
-              {modalSummary.isLunas
-                ? "🟢 MODAL LUNAS — siap bagi laba periode"
-                : "🔴 SALDO HUTANG MODAL — belum boleh bagi laba periode"}
-            </div>
-
-            <div className="space-y-3">
-              <Row
-                label="Total Modal Keluar"
-                value={formatRupiah(modalSummary.totalModalKeluar)}
-              />
-              <Row
-                label="Total Withdraw Ayah"
-                value={formatRupiah(modalSummary.totalWithdrawAyah)}
-              />
-              <Row
-                label="Saldo Hutang Modal"
-                value={formatRupiah(
-                  modalSummary.saldoHutangModal > 0
-                    ? modalSummary.saldoHutangModal
-                    : 0
-                )}
-                highlight={!modalSummary.isLunas}
-              />
-            </div>
-
-            <p className="mt-5 text-xs text-slate-500 bg-slate-50 rounded-xl p-3 border border-slate-100">
-              💡 Detail lebih lengkap bisa dilihat di menu{" "}
-              <span className="font-bold text-indigo-600">
-                Manajemen Modal
-              </span>
-              .
-            </p>
-          </div>
-        </div>
-
-        {/* Produk terlaris & transaksi terbaru */}
-        <div className="xl:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Produk terlaris */}
-          <div className="bg-white rounded-3xl shadow-lg border border-slate-200/50 p-7 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
-              Produk Terlaris
-            </h2>
-            <p className="text-xs text-slate-600 mb-4">
-              Top 5 produk berdasarkan quantity terjual dari seluruh data
-              transaksi (all time).
-            </p>
-
-            {topProducts.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-4xl mb-2">📦</div>
-                <p className="text-sm text-slate-500">
-                  Belum ada data produk terlaris.
-                </p>
-              </div>
+        {/* Status Modal - Alert Box */}
+        <div className={`rounded-lg border p-4 sm:p-5 ${
+          modalSummary.isLunas
+            ? "bg-emerald-50 border-emerald-200"
+            : "bg-amber-50 border-amber-200"
+        }`}>
+          <div className="flex items-start gap-3">
+            {modalSummary.isLunas ? (
+              <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
             ) : (
-              <div className="space-y-3">
-                {topProducts.map((p, idx) => (
-                  <div
-                    key={p.code}
-                    className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-indigo-50/30 rounded-2xl border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all duration-300 group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white font-bold text-sm shadow-md">
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-800 text-sm group-hover:text-indigo-600 transition-colors">
-                          {p.name}
-                        </div>
-                        <div className="text-xs text-slate-500">{p.code}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-indigo-600 text-sm">
-                        {formatNumber(p.quantity)}
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        {formatRupiah(p.revenue)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
             )}
+            <div className="flex-1 min-w-0">
+              <h3 className={`text-sm sm:text-base font-semibold mb-1 ${
+                modalSummary.isLunas ? "text-emerald-900" : "text-amber-900"
+              }`}>
+                {modalSummary.isLunas ? "Modal Sudah Lunas" : "Saldo Hutang Modal"}
+              </h3>
+              <p className={`text-xs sm:text-sm ${
+                modalSummary.isLunas ? "text-emerald-700" : "text-amber-700"
+              }`}>
+                {modalSummary.isLunas
+                  ? "Laba periode sudah bisa diambil. Detail lengkap di menu Laporan CempakaPack."
+                  : `Belum boleh bagi laba periode. Sisa hutang: ${formatRupiah(modalSummary.saldoHutangModal)}`}
+              </p>
+            </div>
           </div>
+        </div>
 
-          {/* Transaksi terbaru */}
-          <div className="bg-white rounded-3xl shadow-lg border border-slate-200/50 p-7 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <h2 className="text-lg font-bold text-slate-800 mb-2">
-              Transaksi Terbaru
-            </h2>
-            <p className="text-xs text-slate-600 mb-4">
-              5 transaksi item terakhir yang kamu input (all time).
-            </p>
+        {/* Pembagian Laba Hari Ini & Kemarin */}
+        <div>
+          <h2 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4 px-1">
+            Pembagian Laba
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            {/* BluePack */}
+            <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 sm:p-2.5 bg-blue-100 rounded-lg">
+                    <Package className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs sm:text-sm font-medium text-slate-600">BluePack (40%)</p>
+                    <p className="text-lg sm:text-2xl font-bold text-slate-900 tabular-nums mt-0.5 sm:mt-1">
+                      {formatRupiah(bluePackToday)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm pt-3 sm:pt-4 border-t border-slate-100">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Hari Ini</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{formatRupiah(bluePackToday)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Kemarin</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{formatRupiah(bluePackYesterday)}</span>
+                </div>
+              </div>
+            </div>
 
+            {/* CempakaPack */}
+            <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 sm:p-2.5 bg-purple-100 rounded-lg">
+                    <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs sm:text-sm font-medium text-slate-600">CempakaPack (60%)</p>
+                    <p className="text-lg sm:text-2xl font-bold text-slate-900 tabular-nums mt-0.5 sm:mt-1">
+                      {formatRupiah(cempakaToday)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm pt-3 sm:pt-4 border-t border-slate-100">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Hari Ini</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{formatRupiah(cempakaToday)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Kemarin</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{formatRupiah(cempakaYesterday)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Top 5 Produk Terlaris */}
+        <div className="bg-white rounded-lg border border-slate-200">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Produk Terlaris</h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">Top 5 produk berdasarkan quantity terjual (all time)</p>
+          </div>
+          <div className="p-4 sm:p-6">
+            <TopProductsTable products={topProducts} />
+          </div>
+        </div>
+
+        {/* Transaksi Terbaru */}
+        <div className="bg-white rounded-lg border border-slate-200">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Transaksi Terbaru</h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">5 transaksi item terakhir yang kamu input (all time)</p>
+          </div>
+          <div className="p-4 sm:p-6">
             {loading ? (
-              <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-200 border-t-indigo-600" />
-                <p className="text-sm text-slate-500 mt-3">Memuat data…</p>
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+                <span className="ml-3 text-sm text-slate-600">Memuat data...</span>
               </div>
             ) : recentTransactions.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-4xl mb-2">📝</div>
-                <p className="text-sm text-slate-500">
-                  Belum ada transaksi tercatat.
-                </p>
+              <div className="text-center py-12">
+                <Receipt className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">Belum ada transaksi tercatat</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {recentTransactions.map((t) => (
-                  <div
-                    key={t.id}
-                    className="p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 hover:shadow-sm transition-all duration-300"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="font-semibold text-slate-800 text-sm">
-                          {t.buyerUsername}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {formatDate(t.date)}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-indigo-600 text-sm">
-                          {formatRupiah(t.totalSellPrice)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600">{t.productName}</span>
-                      <span className="font-semibold text-slate-700">
-                        {formatNumber(t.quantity)} pcs
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead>
+                      <tr className="bg-slate-50">
+                        <th className="sticky left-0 z-10 bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">
+                          Tanggal
+                        </th>
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase whitespace-nowrap">
+                          Username
+                        </th>
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase whitespace-nowrap">
+                          Produk
+                        </th>
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase">
+                          Qty
+                        </th>
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase whitespace-nowrap">
+                          Total
+                        </th>
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase">
+                          Laba
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {recentTransactions.map((t) => (
+                        <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="sticky left-0 z-10 bg-white hover:bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-600 whitespace-nowrap">
+                            {t.date ? formatDate(t.date) : "-"}
+                          </td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                            <p className="text-xs sm:text-sm font-medium text-slate-900">{t.buyerUsername || "-"}</p>
+                            {t.notes && (
+                              <p className="text-xs text-slate-500 truncate max-w-[150px]">{t.notes}</p>
+                            )}
+                          </td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                            <p className="text-xs sm:text-sm font-medium text-slate-900">{t.productName || "-"}</p>
+                            <p className="text-xs text-slate-500">{t.productCode}</p>
+                          </td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-slate-900">
+                            {formatNumber(t.actualQuantity || t.quantity || 0)}
+                          </td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-slate-900 whitespace-nowrap">
+                            {formatRupiah(t.totalSellPrice || 0)}
+                          </td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-emerald-600 whitespace-nowrap">
+                            {formatRupiah(t.profit || 0)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// Premium MiniStat component
-function MiniStat({ label, value, helper }) {
-  return (
-    <div className="bg-white rounded-2xl px-5 py-4 border border-slate-200">
-      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
-        {label}
-      </p>
-      <p className="text-2xl font-bold text-slate-900 mb-1">
-        {value}
-      </p>
-      {helper && (
-        <p className="text-xs text-slate-400">{helper}</p>
-      )}
-    </div>
-  );
-}
-
-// Premium Row component
-function Row({ label, value, highlight = false }) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-      <span className="text-sm font-medium text-slate-700">{label}</span>
-      <span className={`text-sm font-medium ${highlight ? "text-rose-500" : "text-slate-900"}`}>
-        {value}
-      </span>
     </div>
   );
 }

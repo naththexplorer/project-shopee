@@ -1,61 +1,63 @@
 // src/components/dashboard/ModalStatusCard.jsx
-// Card status modal: total modal keluar, total withdraw, saldo hutang + label LUNAS/BELUM.
-
-import SectionCard from "../common/SectionCard.jsx";
-import { useData } from "../../context/DataContext.jsx";
 import { formatRupiah } from "../../utils/formatters.js";
+import { CheckCircle, AlertCircle } from "lucide-react";
 
-export default function ModalStatusCard() {
-  const { modalSummary } = useData();
-  const { totalModalKeluar, totalWithdrawAyah, saldoHutangModal, modalLunas } =
-    modalSummary;
+export default function ModalStatusCard({ modalSummary }) {
+  const { totalModalKeluar, totalWithdrawAyah, saldoHutangModal, isLunas } = modalSummary;
 
   return (
-    <SectionCard
-      title="Status Modal"
-      subtitle="Total modal keluar vs withdraw ayah"
-    >
-      <div className="space-y-3 text-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500">Total Modal Keluar</span>
-          <span className="font-medium">
-            {formatRupiah(totalModalKeluar)}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500">Total Withdraw Ayah</span>
-          <span className="font-medium">
-            {formatRupiah(totalWithdrawAyah)}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500">Saldo Hutang Modal</span>
-          <span
-            className={`font-semibold ${
-              modalLunas ? "text-emerald-500" : "text-rose-500"
-            }`}
-          >
-            {formatRupiah(Math.max(saldoHutangModal, 0))}
-          </span>
+    <div className={`rounded-xl border p-6 shadow-card ${
+      isLunas
+        ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200'
+        : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200'
+    }`}>
+      <div className="flex items-start gap-4">
+        <div className={`p-3 rounded-lg ${isLunas ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+          {isLunas ? (
+            <CheckCircle className="w-6 h-6 text-emerald-600" />
+          ) : (
+            <AlertCircle className="w-6 h-6 text-amber-600" />
+          )}
         </div>
 
-        <div
-          className={`mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs ${
-            modalLunas
-              ? "bg-emerald-50 text-emerald-600"
-              : "bg-rose-50 text-rose-600"
-          }`}
-        >
-          <span
-            className={`h-2 w-2 rounded-full ${
-              modalLunas ? "bg-emerald-500" : "bg-rose-500"
-            }`}
-          />
-          {modalLunas
-            ? "MODAL LUNAS — laba periode boleh dibagi"
-            : "SALDO HUTANG MODAL — laba belum boleh diambil"}
+        <div className="flex-1">
+          <h3 className={`text-lg font-semibold mb-1 ${
+            isLunas ? 'text-emerald-900' : 'text-amber-900'
+          }`}>
+            {isLunas ? 'Capital Fully Paid' : 'Outstanding Capital'}
+          </h3>
+          <p className={`text-sm mb-4 ${isLunas ? 'text-emerald-700' : 'text-amber-700'}`}>
+            {isLunas
+              ? 'All capital has been returned. Profit can be withdrawn.'
+              : 'Capital must be fully paid before withdrawing profit.'}
+          </p>
+
+          <div className="space-y-3">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+              <span className="text-sm text-slate-600">Total Capital Used</span>
+              <span className="font-semibold text-slate-900 tabular-nums">
+                {formatRupiah(totalModalKeluar)}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+              <span className="text-sm text-slate-600">Total Returned</span>
+              <span className="font-semibold text-slate-900 tabular-nums">
+                {formatRupiah(totalWithdrawAyah)}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-sm font-semibold text-slate-700">Outstanding Balance</span>
+              <span className={`text-lg font-bold tabular-nums ${
+                isLunas ? 'text-emerald-600' : 'text-amber-600'
+              }`}>
+                {formatRupiah(Math.max(0, saldoHutangModal))}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
-    </SectionCard>
+    </div>
   );
 }

@@ -1,58 +1,60 @@
 // src/components/dashboard/TopProductsTable.jsx
-// Tabel produk terlaris berdasarkan quantity; sementara dihitung simpel dari transactions.
+import { formatRupiah, formatNumber } from "../../utils/formatters.js";
+import { Package } from "lucide-react";
 
-import SectionCard from "../common/SectionCard.jsx";
-import { useData } from "../../context/DataContext.jsx";
-
-export default function TopProductsTable() {
-  const { transactions } = useData();
-
-  // Agregasi sederhana: sum quantity per productName
-  const productMap = new Map();
-  for (const t of transactions) {
-    const key = t.productName || t.productCode;
-    const qty = t.actualQuantity || t.quantity || 0;
-    const prev = productMap.get(key) || 0;
-    productMap.set(key, prev + qty);
+export default function TopProductsTable({ products = [] }) {
+  if (products.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+        <p className="text-sm text-slate-500">Belum ada data produk terlaris</p>
+      </div>
+    );
   }
 
-  const list = Array.from(productMap.entries())
-    .map(([name, qty]) => ({ name, qty }))
-    .sort((a, b) => b.qty - a.qty)
-    .slice(0, 5);
-
   return (
-    <SectionCard
-      title="Produk Terlaris"
-      subtitle="Top 5 berdasarkan quantity"
-    >
-      <div className="mt-2 space-y-2 text-xs">
-        {list.length === 0 && (
-          <p className="text-slate-400 text-center py-4">
-            Belum ada data transaksi.
-          </p>
-        )}
-        {list.map((p, i) => (
-          <div key={p.name} className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400 w-4">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <span className="font-medium text-slate-700">
-                {p.name}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="w-16 text-right text-slate-500">
-                {p.qty} pcs
-              </span>
-              <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full w-3/4 bg-gradient-to-r from-indigo-500 to-violet-500" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </SectionCard>
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-slate-200">
+            <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              Peringkat
+            </th>
+            <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              Produk
+            </th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              Qty Terjual
+            </th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              Total Penjualan
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {products.map((product, index) => (
+            <tr key={product.code} className="hover:bg-slate-50 transition-colors">
+              <td className="py-3 px-4">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
+                  {index + 1}
+                </span>
+              </td>
+              <td className="py-3 px-4">
+                <div>
+                  <p className="font-medium text-slate-900">{product.name}</p>
+                  <p className="text-xs text-slate-500">{product.code}</p>
+                </div>
+              </td>
+              <td className="py-3 px-4 text-right tabular-nums font-semibold text-slate-900">
+                {formatNumber(product.quantity)}
+              </td>
+              <td className="py-3 px-4 text-right tabular-nums font-semibold text-slate-900">
+                {formatRupiah(product.revenue)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

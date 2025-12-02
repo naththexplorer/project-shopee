@@ -1,283 +1,329 @@
 // src/pages/BluePackPage.jsx
-// Halaman laporan & withdraw khusus BluePack (40% laba).
-
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
 import { formatRupiah, formatDate } from "../utils/formatters.js";
+import { toast } from "react-hot-toast";
+import { Package, TrendingUp, Plus, Loader2, Filter, Calendar } from "lucide-react";
 
 export default function BluePackPage() {
-  const {
-    summary,
-    bluepackWithdrawals,
-    addBluepackWithdrawal,
-    deleteBluepackWithdrawal,
-    loading,
-  } = useData();
+  const { transactions, bluePackWithdrawals, addBluePackWithdrawal, loading } = useData();
 
-  const [date, setDate] = useState(
-    new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-  );
   const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  const totalBluepackProfit = summary.bluePack || 0;
-  const totalBluepackWithdraw = summary.totalBluepackWithdraw || 0;
-  const saldoBluepack =
-    summary.saldoBluepack ?? totalBluepackProfit - totalBluepackWithdraw;
+  // Filter state
+  const [filterMonth, setFilterMonth] = useState("");
 
-  async function handleSubmit(e) {
+  // Calculate BluePack data dengan filter bulan
+  const bluePackData = useMemo(() => {
+    const txAll = Array.isArray(transactions) ? transactions : [];
+    const wd = Array.isArray(bluePackWithdrawals) ? bluePackWithdrawals : [];
+
+    // Filter transaksi berdasarkan bulan jika ada
+    const filteredTx = filterMonth
+      ? txAll.filter((t) => {
+          const dateStr = t.date || (t.timestamp ? new Date(t.timestamp).toISOString().slice(0, 10) : null);
+          if (!dateStr) return false;
+          const txMonth = dateStr.slice(0, 7); // YYYY-MM
+          return txMonth === filterMonth;
+        })
+      : txAll;
+
+    // Hitung total laba BluePack (40%) dari transaksi terfilter
+    const totalBlueProfit = filteredTx.reduce((sum, t) => sum + (t.bluePack || 0), 0);
+
+    // Hitung total penarikan
+    const totalWithdrawn = wd.reduce((sum, w) => sum + (w.amount || 0), 0);
+
+    // Hitung saldo tersisa
+    const remainingBalance = totalBlueProfit - totalWithdrawn;
+
+    // Group by date untuk breakdown harian
+    const byDate = new Map();
+    filteredTx.forEach((t) => {
+      const dateStr = t.date || new Date(t.timestamp).toISOString().slice(0, 10);
+      const existing = byDate.get(dateStr) || {
+        date: dateStr,
+        bluePack: 0,
+        transactions: 0,
+      };
+      existing.bluePack += t.bluePack || 0;
+      existing.transactions += 1;
+      byDate.set(dateStr, existing);
+    });
+
+    const dailyBreakdown = Array.from(byDate.values()).sort((a, b) => b.date.localeCompare(a.date));
+
+    // Get available months untuk filter
+    const months = new Set();
+    txAll.forEach((t) => {
+      const dateStr = t.date || (t.timestamp ? new Date(t.timestamp).toISOString().slice(0, 10) : null);
+      if (dateStr) {
+        months.add(dateStr.slice(0, 7));
+      }
+    });
+    const availableMonths = Array.from(months).sort().reverse();
+
+    return {
+      totalBlueProfit,
+      totalWithdrawn,
+      remainingBalance,
+      dailyBreakdown,
+      availableMonths,
+      transactionCount: filteredTx.length,
+    };
+  }, [transactions, bluePackWithdrawals, filterMonth]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    const numAmount = Number(amount);
 
-    const nominal = Number(amount);
-    if (!date || !nominal || nominal <= 0) {
-      alert("Tanggal dan nominal withdraw harus diisi dengan benar.");
+    if (!numAmount || numAmount <= 0) {
+      toast.error("Jumlah harus lebih dari nol");
+      return;
+    }
+
+    if (!date) {
+      toast.error("Tanggal harus diisi");
       return;
     }
 
     try {
-      setSaving(true);
-      await addBluepackWithdrawal({
+      await addBluePackWithdrawal({
+        amount: numAmount,
         date,
-        amount: nominal,
-        notes,
+        notes: notes.trim(),
+        timestamp: Date.now(),
       });
 
+      toast.success("Penarikan BluePack berhasil dicatat!");
       setAmount("");
       setNotes("");
       setDate(new Date().toISOString().slice(0, 10));
-
-      alert("Withdraw BluePack tersimpan.");
     } catch (err) {
       console.error(err);
-      alert(err.message || "Gagal menyimpan withdraw BluePack.");
-    } finally {
-      setSaving(false);
+      toast.error("Gagal mencatat penarikan");
     }
-  }
-
-  async function handleDelete(id) {
-    const ok = window.confirm(
-      "Yakin ingin menghapus riwayat withdraw BluePack ini? Aksi tidak bisa dibatalkan."
-    );
-    if (!ok) return;
-
-    try {
-      await deleteBluepackWithdrawal(id);
-      alert("Riwayat withdraw BluePack berhasil dihapus.");
-    } catch (err) {
-      console.error(err);
-      alert(err.message || "Gagal menghapus withdraw BluePack.");
-    }
-  }
+  };
 
   return (
-    <div className="space-y-8">
-      {/* HEADER */}
-      <div className="relative">
-        <div className="absolute -top-4 -left-4 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl" />
-        <div className="absolute -top-4 -right-4 w-32 h-32 bg-emerald-200/30 rounded-full blur-3xl" />
-        <div className="relative">
-          <h1 className="text-3xl font-extrabold text-slate-800 mb-2">
-            Riwayat Modal & Withdraw
-          </h1>
-          <p className="text-sm text-slate-600 max-w-xl">
-            Mengelola bagian laba Bluepack, secara terpisah dari modal.
-            Di sini hanya fokus ke saldo, withdraw, dan riwayat tarik Bluepack.
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-6 lg:p-8 animate-fadeIn">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        {/* Page Header */}
+        <div className="px-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Laporan BluePack</h1>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
+            Kelola penarikan laba BluePack (40% dari laba bersih)
           </p>
         </div>
-      </div>
 
-      {/* RINGKASAN SALDO BLUEPACK */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <SummaryCard
-          title="Total Laba BluePack (All Time)"
-          subtitle="Σ 40% laba dari seluruh transaksi"
-          value={formatRupiah(totalBluepackProfit)}
-        />
-        <SummaryCard
-          title="Total Withdraw BluePack"
-          subtitle="Σ semua penarikan BluePack yang sudah dilakukan"
-          value={formatRupiah(totalBluepackWithdraw)}
-        />
-        <SummaryCard
-          title="Saldo BluePack Saat Ini"
-          subtitle="Laba BluePack - total withdraw BluePack"
-          value={formatRupiah(saldoBluepack)}
-          important
-        />
-      </div>
+        {/* Month Filter */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
+            <h2 className="text-sm sm:text-base font-semibold text-slate-900">Filter Berdasarkan Bulan</h2>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">Semua Waktu</option>
+              {bluePackData.availableMonths.map((month) => (
+                <option key={month} value={month}>
+                  {new Date(month + "-01").toLocaleDateString("id-ID", { year: "numeric", month: "long" })}
+                </option>
+              ))}
+            </select>
+            {filterMonth && (
+              <button
+                onClick={() => setFilterMonth("")}
+                className="px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 whitespace-nowrap"
+              >
+                Hapus filter
+              </button>
+            )}
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-        {/* FORM INPUT WITHDRAW BLUEPACK */}
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-200/70 p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                Input Withdraw BluePack
-              </h2>
-              <p className="text-xs text-slate-500 max-w-xs">
-                Catat setiap penarikan bagian laba BluePack untuk kebutuhan
-                pribadi atau tabungan terpisah.
-              </p>
+        {/* Summary Cards - Mobile: 1 col, Tablet: 2 cols, Desktop: 3 cols */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2">
+              <div className="p-2 sm:p-2.5 bg-blue-100 rounded-lg">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+              </div>
+              <p className="text-xs sm:text-sm font-medium text-slate-600">Total Laba BluePack</p>
             </div>
+            <p className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">
+              {formatRupiah(bluePackData.totalBlueProfit)}
+            </p>
+            <p className="text-xs text-blue-600 mt-1">40% dari laba bersih</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Tanggal Withdraw
-              </label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full border border-slate-300 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              />
+          <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2">
+              <div className="p-2 sm:p-2.5 bg-red-100 rounded-lg">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 rotate-180" />
+              </div>
+              <p className="text-xs sm:text-sm font-medium text-slate-600">Total Penarikan</p>
+            </div>
+            <p className="text-xl sm:text-2xl font-bold text-red-600 tabular-nums">
+              {formatRupiah(bluePackData.totalWithdrawn)}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">Sudah ditarik</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4 sm:p-6 sm:col-span-2 lg:col-span-1">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2">
+              <div className="p-2 sm:p-2.5 bg-blue-100 rounded-lg">
+                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+              </div>
+              <p className="text-xs sm:text-sm font-medium text-blue-700">Saldo Tersisa</p>
+            </div>
+            <p className="text-xl sm:text-2xl font-bold text-blue-900 tabular-nums">
+              {formatRupiah(bluePackData.remainingBalance)}
+            </p>
+            <p className="text-xs text-blue-600 mt-1">Bisa ditarik</p>
+          </div>
+        </div>
+
+        {/* Add Withdrawal Form - Mobile: 1 col, Desktop: 3 cols */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Catat Penarikan BluePack</h2>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
+                  Jumlah <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="contoh: 100000"
+                  min="1"
+                  step="1"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
+                  Tanggal Penarikan <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
+                  Catatan (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Tujuan penarikan..."
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Nominal Withdraw
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="contoh: 250000"
-                className="w-full border border-slate-300 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              />
-              <p className="mt-1 text-[11px] text-slate-400">
-                Idealnya tidak melebihi saldo BluePack yang tersedia.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Catatan (opsional)
-              </label>
-              <textarea
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="misal: simpanan pribadi, kebutuhan, dll."
-                className="w-full border border-slate-300 rounded-2xl px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setAmount("");
-                  setNotes("");
-                  setDate(new Date().toISOString().slice(0, 10));
-                }}
-                className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 transition"
-              >
-                Reset
-              </button>
+            <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={saving}
-                className="inline-flex items-center justify-center px-5 py-2.5 rounded-2xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 shadow-md shadow-indigo-500/30"
+                disabled={loading}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white font-medium text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {saving ? "Menyimpan…" : "Simpan Withdraw"}
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                Catat Penarikan
               </button>
             </div>
           </form>
         </div>
 
-        {/* RIWAYAT WITHDRAW BLUEPACK */}
-        <div className="xl:col-span-2 bg-white rounded-3xl shadow-lg border border-slate-200/50 p-6 text-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-base font-semibold text-slate-800">
-                Riwayat Withdraw BluePack
-              </h2>
-              <p className="text-xs text-slate-500">
-                Semua penarikan BluePack yang pernah dicatat akan muncul di sini.
-              </p>
-            </div>
+        {/* Daily Breakdown */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Breakdown Harian</h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">Laba BluePack per hari</p>
           </div>
 
-          {loading ? (
-            <p className="text-xs text-slate-500">Memuat data…</p>
-          ) : bluepackWithdrawals.length === 0 ? (
-            <p className="text-xs text-slate-500">
-              Belum ada withdraw BluePack tercatat. Input withdraw pertama di
-              form sebelah kiri.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-xs">
-                <thead>
-                  <tr className="text-left text-[11px] uppercase text-slate-400 border-b border-slate-100">
-                    <th className="py-2 pr-4">Tanggal</th>
-                    <th className="py-2 pr-4 text-right">Nominal</th>
-                    <th className="py-2 pr-4">Catatan</th>
-                    <th className="py-2 pr-2 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bluepackWithdrawals.map((w) => (
-                    <tr
-                      key={w.id}
-                      className="border-b border-slate-50 hover:bg-slate-50/60"
-                    >
-                      <td className="py-2 pr-4 whitespace-nowrap">
-                        {formatDate(w.date)}
-                      </td>
-                      <td className="py-2 pr-4 text-right whitespace-nowrap">
-                        {formatRupiah(w.amount)}
-                      </td>
-                      <td className="py-2 pr-4">
-                        {w.notes || (
-                          <span className="text-slate-400 italic">
-                            (tanpa catatan)
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-2 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(w.id)}
-                          className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline"
-                        >
-                          Hapus
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="p-4 sm:p-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+                <span className="ml-3 text-sm text-slate-600">Memuat data...</span>
+              </div>
+            ) : bluePackData.dailyBreakdown.length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">Tidak ada data BluePack di periode terpilih</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead>
+                      <tr className="bg-slate-50">
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">Tanggal</th>
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase">Transaksi</th>
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase whitespace-nowrap">Laba BluePack</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {bluePackData.dailyBreakdown.map((d) => (
+                        <tr key={d.date} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-slate-900 whitespace-nowrap">
+                            {formatDate(d.date)}
+                          </td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm text-slate-600">
+                            {d.transactions} item
+                          </td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-blue-600 whitespace-nowrap">
+                            {formatRupiah(d.bluePack)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="border-t-2 border-slate-300">
+                      <tr className="bg-slate-50">
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold text-slate-900">Total</td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-bold text-slate-900">
+                          {bluePackData.transactionCount} item
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-bold text-blue-600 whitespace-nowrap">
+                          {formatRupiah(bluePackData.totalBlueProfit)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Info Note */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+          <h3 className="text-xs sm:text-sm font-semibold text-blue-900 mb-2">Tentang BluePack</h3>
+          <p className="text-xs sm:text-sm text-blue-700">
+            BluePack menerima 40% dari laba bersih setiap transaksi. Penarikan bisa dilakukan kapan saja sesuai kebutuhan.
+          </p>
         </div>
       </div>
-    </div>
-  );
-}
-
-function SummaryCard({ title, value, subtitle, important = false }) {
-  return (
-    <div className="bg-white rounded-3xl border border-slate-200/70 p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-          {title}
-        </p>
-        <p
-          className={`mt-1 text-lg font-semibold ${
-            important ? "text-emerald-600" : "text-slate-900"
-          }`}
-        >
-          {value}
-        </p>
-      </div>
-      {subtitle && (
-        <p className="mt-2 text-[11px] text-slate-400">{subtitle}</p>
-      )}
     </div>
   );
 }

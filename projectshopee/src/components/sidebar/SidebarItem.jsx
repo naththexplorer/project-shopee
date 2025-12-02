@@ -1,35 +1,21 @@
-// src/components/sidebar/SidebarItem.jsx
+// src/components/layout/SidebarItem.jsx
 import { NavLink } from "react-router-dom";
 
-export default function SidebarItem({
-  to,
-  label,
-  icon: Icon,
-  isActive,
-  onClick,
-}) {
+export default function SidebarItem({ to, icon: Icon, label, onClick }) {
   return (
     <NavLink
       to={to}
-      onClick={onClick}
-      className={({ isActive: activeFromRouter }) => {
-        const active = activeFromRouter || isActive;
-        return `
-          flex items-center gap-3
-          px-4 py-3.5 rounded-xl
-          text-sm font-medium
-          transition-all duration-200
-          relative
-          ${
-            active
-              ? "bg-white/20 text-white shadow-lg border border-white/25"
-              : "text-white/80 hover:bg-white/10 hover:text-white"
-          }
-        `;
-      }}
+      onClick={onClick} // Close sidebar on mobile after click
+      className={({ isActive }) =>
+        `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+          isActive
+            ? "bg-indigo-600 text-white font-medium shadow-lg"
+            : "text-slate-300 hover:bg-slate-700 hover:text-white"
+        }`
+      }
     >
-      {Icon && <Icon className="h-4 w-4" />}
-      <span className="font-semibold tracking-tight">{label}</span>
+      <Icon className="w-5 h-5 flex-shrink-0" />
+      <span className="text-sm">{label}</span>
     </NavLink>
   );
 }

@@ -1,319 +1,362 @@
 // src/pages/ModalPage.jsx
-// Halaman manajemen modal & withdraw ayah.
-
 import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
 import { formatRupiah, formatDate } from "../utils/formatters.js";
+import { toast } from "react-hot-toast";
+import { Wallet, TrendingDown, TrendingUp, Plus, Loader2, Filter, Calendar } from "lucide-react";
 
 export default function ModalPage() {
-  const {
-    transactions,
-    withdrawals,
-    addWithdrawal,
-    deleteWithdrawal,
-    loading,
-  } = useData();
+  const { transactions, withdrawals, addWithdrawal, loading } = useData();
 
-  const [date, setDate] = useState(
-    new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-  );
   const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  // ============================
-  // HITUNG STATUS MODAL AYAH
-  // ============================
+  // Filter state
+  const [filterMonth, setFilterMonth] = useState("");
 
-  const modalStatus = useMemo(() => {
-    // Total modal yang pernah keluar (berdasarkan field totalCost dari transaksi)
-    const totalModalKeluar = transactions.reduce(
-      (acc, t) => acc + (t.totalCost || 0),
-      0
-    );
+  // Calculate capital summary dengan filter bulan
+  const cempakaData = useMemo(() => {
+    const txAll = Array.isArray(transactions) ? transactions : [];
+    const wd = Array.isArray(withdrawals) ? withdrawals : [];
 
-    // Total withdraw yang sudah ditarik oleh ayah
-    const totalWithdraw = withdrawals.reduce(
-      (acc, w) => acc + (w.amount || 0),
-      0
-    );
+    // Filter transaksi berdasarkan bulan jika ada
+    const filteredTx = filterMonth
+      ? txAll.filter((t) => {
+          const dateStr = t.date || (t.timestamp ? new Date(t.timestamp).toISOString().slice(0, 10) : null);
+          if (!dateStr) return false;
+          const txMonth = dateStr.slice(0, 7); // YYYY-MM
+          return txMonth === filterMonth;
+        })
+      : txAll;
 
-    // Status modal saat ini (berapa yang "masih nyangkut" di modal)
-    const statusModal = totalModalKeluar - totalWithdraw;
+    // Hitung total modal keluar (dari transaksi)
+    const totalModalKeluar = txAll.reduce((sum, t) => sum + (t.totalCost || 0), 0);
+
+    // Hitung total dikembalikan (dari withdrawals)
+    const totalWithdrawAyah = wd.reduce((sum, w) => sum + (w.amount || 0), 0);
+
+    // Hitung sisa hutang
+    const saldoHutangModal = totalModalKeluar - totalWithdrawAyah;
+
+    // Hitung total laba CempakaPack (60%) dari transaksi terfilter
+    const totalCempakaProfit = filteredTx.reduce((sum, t) => sum + (t.cempakaPack || 0), 0);
+
+    // Group by date untuk breakdown harian
+    const byDate = new Map();
+    filteredTx.forEach((t) => {
+      const dateStr = t.date || new Date(t.timestamp).toISOString().slice(0, 10);
+      const existing = byDate.get(dateStr) || {
+        date: dateStr,
+        cempakaPack: 0,
+        transactions: 0,
+      };
+      existing.cempakaPack += t.cempakaPack || 0;
+      existing.transactions += 1;
+      byDate.set(dateStr, existing);
+    });
+
+    const dailyBreakdown = Array.from(byDate.values()).sort((a, b) => b.date.localeCompare(a.date));
+
+    // Get available months untuk filter
+    const months = new Set();
+    txAll.forEach((t) => {
+      const dateStr = t.date || (t.timestamp ? new Date(t.timestamp).toISOString().slice(0, 10) : null);
+      if (dateStr) {
+        months.add(dateStr.slice(0, 7));
+      }
+    });
+    const availableMonths = Array.from(months).sort().reverse();
 
     return {
       totalModalKeluar,
-      totalWithdraw,
-      statusModal,
+      totalWithdrawAyah,
+      saldoHutangModal,
+      isLunas: saldoHutangModal <= 0,
+      totalCempakaProfit,
+      dailyBreakdown,
+      availableMonths,
+      transactionCount: filteredTx.length,
     };
-  }, [transactions, withdrawals]);
+  }, [transactions, withdrawals, filterMonth]);
 
-  // ============================
-  // INPUT WITHDRAW
-  // ============================
-
-  async function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    const numAmount = Number(amount);
 
-    const nominal = Number(amount);
-    if (!date || !nominal || nominal <= 0) {
-      alert("Tanggal dan nominal withdraw harus diisi dengan benar.");
+    if (!numAmount || numAmount <= 0) {
+      toast.error("Jumlah harus lebih dari nol");
+      return;
+    }
+
+    if (!date) {
+      toast.error("Tanggal harus diisi");
       return;
     }
 
     try {
-      setSaving(true);
       await addWithdrawal({
+        amount: numAmount,
         date,
-        amount: nominal,
-        notes,
+        notes: notes.trim(),
+        timestamp: Date.now(),
       });
 
+      toast.success("Pengembalian modal berhasil dicatat!");
       setAmount("");
       setNotes("");
       setDate(new Date().toISOString().slice(0, 10));
-
-      alert("Withdraw tersimpan.");
     } catch (err) {
       console.error(err);
-      alert(err.message || "Gagal menyimpan withdraw.");
-    } finally {
-      setSaving(false);
+      toast.error("Gagal mencatat pengembalian modal");
     }
-  }
-
-  // ============================
-  // HAPUS RIWAYAT WITHDRAW (FITUR 2)
-  // ============================
-
-  async function handleDeleteWithdraw(id) {
-    const ok = window.confirm(
-      "Yakin ingin menghapus riwayat withdraw ini? Aksi tidak bisa dibatalkan."
-    );
-    if (!ok) return;
-
-    try {
-      await deleteWithdrawal(id);
-      alert("Riwayat withdraw berhasil dihapus.");
-    } catch (err) {
-      console.error(err);
-      alert(err.message || "Gagal menghapus withdraw.");
-    }
-  }
+  };
 
   return (
-    <div className="space-y-8">
-      {/* Header dengan style yang sama seperti Dashboard */}
-      <div className="relative">
-        <div className="absolute -top-4 -left-4 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl" />
-        <div className="absolute -top-4 -right-4 w-32 h-32 bg-violet-200/30 rounded-full blur-3xl" />
-        <div className="relative">
-          <h1 className="text-3xl font-extrabold text-slate-800 mb-2">
-            Riwayat Modal & Withdraw
-          </h1>
-          <p className="text-sm text-slate-600 max-w-xl">
-            Mengelola bagian laba Cempakapack, secara terpisah dari modal. Di sini hanya fokus ke saldo, withdraw, dan riwayat tarik Cempakapack.
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-6 lg:p-8 animate-fadeIn">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        {/* Page Header */}
+        <div className="px-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Laporan CempakaPack</h1>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
+            Kelola modal usaha dan laba CempakaPack (60% dari laba bersih)
           </p>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-        {/* FORM INPUT WITHDRAW */}
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-200/70 p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                Input Withdraw Ayah
+        {/* Month Filter */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
+            <h2 className="text-sm sm:text-base font-semibold text-slate-900">Filter Berdasarkan Bulan</h2>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">Semua Waktu</option>
+              {cempakaData.availableMonths.map((month) => (
+                <option key={month} value={month}>
+                  {new Date(month + "-01").toLocaleDateString("id-ID", { year: "numeric", month: "long" })}
+                </option>
+              ))}
+            </select>
+            {filterMonth && (
+              <button
+                onClick={() => setFilterMonth("")}
+                className="px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 whitespace-nowrap"
+              >
+                Hapus filter
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Capital Status Overview - Mobile: 2 cols, Desktop: 4 cols */}
+        <div className={`rounded-lg border p-4 sm:p-6 shadow-sm ${
+          cempakaData.isLunas
+            ? "bg-emerald-50 border-emerald-200"
+            : "bg-amber-50 border-amber-200"
+        }`}>
+          <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div className={`p-2 sm:p-3 rounded-lg ${cempakaData.isLunas ? "bg-emerald-100" : "bg-amber-100"}`}>
+              <Wallet className={`w-5 h-5 sm:w-6 sm:h-6 ${cempakaData.isLunas ? "text-emerald-600" : "text-amber-600"}`} />
+            </div>
+            <div className="flex-1">
+              <h2 className={`text-base sm:text-xl font-bold mb-1 ${
+                cempakaData.isLunas ? "text-emerald-900" : "text-amber-900"
+              }`}>
+                {cempakaData.isLunas ? "Modal Sudah Lunas" : "Saldo Hutang Modal"}
               </h2>
-              <p className="text-xs text-slate-500 max-w-xs">
-                Catat setiap kali ayah menarik uang dari laba / modal agar
-                status keuangan selalu rapi.
+              <p className={`text-xs sm:text-sm ${cempakaData.isLunas ? "text-emerald-700" : "text-amber-700"}`}>
+                {cempakaData.isLunas
+                  ? "Semua modal usaha sudah dikembalikan. Laba periode boleh dibagi."
+                  : "Modal usaha harus lunas dulu sebelum laba periode boleh diambil."}
               </p>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Tanggal Withdraw
-              </label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full border border-slate-300 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Nominal Withdraw
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="contoh: 500000"
-                className="w-full border border-slate-300 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              />
-              <p className="mt-1 text-[11px] text-slate-400">
-                Disarankan hanya tarik dari laba yang sudah tercatat di
-                laporan.
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-white rounded-lg p-3 sm:p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
+                <p className="text-xs font-medium text-slate-600 uppercase">Modal Keluar</p>
+              </div>
+              <p className="text-lg sm:text-2xl font-bold text-slate-900 tabular-nums">
+                {formatRupiah(cempakaData.totalModalKeluar)}
               </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Catatan (opsional)
-              </label>
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="misal: untuk kebutuhan keluarga"
-                className="w-full border border-slate-300 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              />
+            <div className="bg-white rounded-lg p-3 sm:p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
+                <p className="text-xs font-medium text-slate-600 uppercase">Dikembalikan</p>
+              </div>
+              <p className="text-lg sm:text-2xl font-bold text-emerald-600 tabular-nums">
+                {formatRupiah(cempakaData.totalWithdrawAyah)}
+              </p>
+            </div>
+
+            <div className="bg-white rounded-lg p-3 sm:p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
+                <p className="text-xs font-medium text-slate-600 uppercase">Sisa Hutang</p>
+              </div>
+              <p className={`text-lg sm:text-2xl font-bold tabular-nums ${
+                cempakaData.isLunas ? "text-emerald-600" : "text-amber-600"
+              }`}>
+                {formatRupiah(Math.max(0, cempakaData.saldoHutangModal))}
+              </p>
+            </div>
+
+            <div className="bg-white rounded-lg p-3 sm:p-4 border border-purple-200 col-span-2 lg:col-span-1">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />
+                <p className="text-xs font-medium text-purple-700 uppercase">Laba CempakaPack</p>
+              </div>
+              <p className="text-lg sm:text-2xl font-bold text-purple-600 tabular-nums">
+                {formatRupiah(cempakaData.totalCempakaProfit)}
+              </p>
+              <p className="text-xs text-purple-600 mt-1">60% dari laba bersih</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Add Capital Return Form - Mobile: 1 col, Desktop: 3 cols */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Catat Pengembalian Modal</h2>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
+                  Jumlah <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="contoh: 500000"
+                  min="1"
+                  step="1"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
+                  Tanggal Pengembalian <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
+                  Catatan (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Metode pembayaran, referensi..."
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
             </div>
 
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={saving}
-                className="inline-flex items-center justify-center px-5 py-2.5 rounded-2xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 shadow-md shadow-indigo-500/30"
+                disabled={loading}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white font-medium text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {saving ? "Menyimpan…" : "Simpan Withdraw"}
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                Catat Pengembalian
               </button>
             </div>
           </form>
         </div>
 
-        {/* KARTU STATUS MODAL */}
-        <div className="xl:col-span-2 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card
-              title="Total Modal Keluar"
-              value={formatRupiah(modalStatus.totalModalKeluar)}
-              subtitle="Akumulasi seluruh modal yang sudah diputar"
-            />
-            <Card
-              title="Total Withdraw Ayah"
-              value={formatRupiah(modalStatus.totalWithdraw)}
-              subtitle="Total yang sudah ditarik dari sistem"
-            />
-            <Card
-              title="Status Modal Saat Ini"
-              value={formatRupiah(modalStatus.statusModal)}
-              subtitle="Modal yang masih tertahan di usaha"
-              important
-            />
+        {/* Daily Breakdown */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900">Breakdown Harian</h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">Laba CempakaPack per hari</p>
           </div>
 
-          {/* RIWAYAT WITHDRAW */}
-          <div className="xl:col-span-2 bg-white rounded-3xl shadow-lg border border-slate-200/50 p-6 text-sm">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h2 className="text-base font-semibold text-slate-800">
-                  Riwayat Withdraw Ayah
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Menampilkan semua withdraw yang sudah dicatat di sistem.
-                </p>
-              </div>
-            </div>
-
+          <div className="p-4 sm:p-6">
             {loading ? (
-              <p className="text-xs text-slate-500">Memuat data…</p>
-            ) : withdrawals.length === 0 ? (
-              <p className="text-xs text-slate-500">
-                Belum ada withdraw tercatat. Input withdraw pertama di form
-                sebelah kiri.
-              </p>
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+                <span className="ml-3 text-sm text-slate-600">Memuat data...</span>
+              </div>
+            ) : cempakaData.dailyBreakdown.length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">Tidak ada data CempakaPack di periode terpilih</p>
+              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-[11px] uppercase text-slate-400 border-b border-slate-100">
-                      <th className="py-2 pr-4">Tanggal</th>
-                      <th className="py-2 pr-4 text-right">Nominal</th>
-                      <th className="py-2 pr-4">Catatan</th>
-                      <th className="py-2 pr-2 text-right">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {withdrawals.map((w) => (
-                      <tr
-                        key={w.id}
-                        className="border-b border-slate-50 hover:bg-slate-50/60"
-                      >
-                        <td className="py-2 pr-4 whitespace-nowrap">
-                          {formatDate(w.date)}
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead>
+                      <tr className="bg-slate-50">
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">Tanggal</th>
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase">Transaksi</th>
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase whitespace-nowrap">Laba CempakaPack</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {cempakaData.dailyBreakdown.map((d) => (
+                        <tr key={d.date} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-slate-900 whitespace-nowrap">
+                            {formatDate(d.date)}
+                          </td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm text-slate-600">
+                            {d.transactions} item
+                          </td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-semibold text-purple-600 whitespace-nowrap">
+                            {formatRupiah(d.cempakaPack)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="border-t-2 border-slate-300">
+                      <tr className="bg-slate-50">
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold text-slate-900">Total</td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-bold text-slate-900">
+                          {cempakaData.transactionCount} item
                         </td>
-                        <td className="py-2 pr-4 text-right whitespace-nowrap">
-                          {formatRupiah(w.amount)}
-                        </td>
-                        <td className="py-2 pr-4">
-                          {w.notes || (
-                            <span className="text-slate-400 italic">
-                              (tanpa catatan)
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 pr-2 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteWithdraw(w.id)}
-                            className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline"
-                          >
-                            Hapus
-                          </button>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right tabular-nums text-xs sm:text-sm font-bold text-purple-600 whitespace-nowrap">
+                          {formatRupiah(cempakaData.totalCempakaProfit)}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             )}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
 
-function Row({ label, value, highlight = false }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span
-        className={`font-semibold ${
-          highlight ? "text-rose-600" : "text-slate-900"
-        }`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function Card({ title, value, subtitle, important = false }) {
-  return (
-    <div className="bg-white rounded-3xl border border-slate-200/70 p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-          {title}
-        </p>
-        <p
-          className={`mt-1 text-lg font-semibold ${
-            important ? "text-rose-600" : "text-slate-900"
-          }`}
-        >
-          {value}
-        </p>
+        {/* Info Note */}
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 sm:p-4">
+          <h3 className="text-xs sm:text-sm font-semibold text-purple-900 mb-2">Tentang CempakaPack</h3>
+          <p className="text-xs sm:text-sm text-purple-700">
+            CempakaPack menerima 60% dari laba bersih setiap transaksi. Modal usaha harus dikembalikan dulu sebelum laba periode boleh diambil.
+          </p>
+        </div>
       </div>
-      {subtitle && (
-        <p className="mt-2 text-[11px] text-slate-400">{subtitle}</p>
-      )}
     </div>
   );
 }
