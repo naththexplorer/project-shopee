@@ -13,6 +13,12 @@ export function AuthProvider({ children }) {
       setUser(JSON.parse(storedUser));
     }
     setLoading(false);
+
+    // Fade in on load
+    setTimeout(() => {
+      document.body.style.opacity = "1";
+      document.body.style.transition = "opacity 300ms ease-in";
+    }, 50);
   }, []);
 
   const login = (role) => {

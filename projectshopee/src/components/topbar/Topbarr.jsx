@@ -2,14 +2,25 @@
 import { Menu, Bell, Search, User, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 export default function Topbarr({ onMenuClick }) {
   const { logout, isCempakapack } = useAuth();
   const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = () => {
-    logout();
-    navigate("/login");
+    setIsLoggingOut(true);
+
+    // Fade out animation
+    document.body.style.opacity = "0";
+    document.body.style.transition = "opacity 150ms ease-out";
+
+    setTimeout(() => {
+      logout();
+      navigate("/login");
+      document.body.style.opacity = "1";
+    }, 150);
   };
 
   return (
@@ -56,10 +67,18 @@ export default function Topbarr({ onMenuClick }) {
           {/* Logout Button */}
           <button
             onClick={handleLogout}
-            className="p-2 text-slate-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
+            disabled={isLoggingOut}
+            className="p-2 text-slate-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group relative"
             title="Logout"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className={`w-5 h-5 transition-transform duration-200 ${
+              isLoggingOut ? "animate-spin" : "group-hover:translate-x-0.5"
+            }`} />
+            {isLoggingOut && (
+              <span className="absolute -bottom-8 right-0 text-xs text-slate-500 whitespace-nowrap">
+                Logging out...
+              </span>
+            )}
           </button>
         </div>
       </div>
