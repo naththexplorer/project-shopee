@@ -1,6 +1,7 @@
 // src/pages/TransactionsPage.jsx
 import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 import { PRODUCTS } from "../utils/constants.js";
 import { calculateItemValues } from "../utils/calculations.js";
 import { formatRupiah, formatNumber, formatDate } from "../utils/formatters.js";
@@ -11,6 +12,7 @@ const EMPTY_ITEM = { productCode: "", quantity: "" };
 
 export default function TransactionsPage() {
   const { transactions, addTransaction, deleteTransaction, loading } = useData();
+  const { user } = useAuth();
 
   const [buyerUsername, setBuyerUsername] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -136,6 +138,7 @@ export default function TransactionsPage() {
           bluePack: item.bluePack,
           cempakaPack: item.cempakaPack,
           timestamp: now,
+          role: user.role,
         });
       }
 
@@ -349,6 +352,7 @@ export default function TransactionsPage() {
             </div>
           </form>
         </div>
+
         {/* TRANSACTION HISTORY */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
