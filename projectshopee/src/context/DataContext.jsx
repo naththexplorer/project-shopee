@@ -1,6 +1,4 @@
 // src/context/DataContext.jsx
-// Provider global untuk transaksi, withdraw CempakaPack, withdraw BluePack, summary, dan sync dengan Firestore.
-
 import {
   collection,
   addDoc,
@@ -10,17 +8,17 @@ import {
   orderBy,
   query,
 } from "firebase/firestore";
-
-import { db } from "../config/firebase";
+import { db } from "../config/firebase.js";
 import { createContext, useContext, useEffect, useState } from "react";
 
 const DataContext = createContext();
+
 export const useData = () => useContext(DataContext);
 
 export function DataProvider({ children }) {
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]); // CempakaPack
-  const [bluepackWithdrawals, setBluepackWithdrawals] = useState([]); // BluePack
+  const [bluePackWithdrawals, setBluePackWithdrawals] = useState([]); // BluePack (typo fix)
   const [loading, setLoading] = useState(true);
 
   // =========================================
@@ -33,7 +31,6 @@ export function DataProvider({ children }) {
       setTransactions(arr);
       setLoading(false);
     });
-
     return () => unsub();
   }, []);
 
@@ -46,7 +43,6 @@ export function DataProvider({ children }) {
       const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setWithdrawals(arr);
     });
-
     return () => unsub();
   }, []);
 
@@ -60,9 +56,8 @@ export function DataProvider({ children }) {
     );
     const unsub = onSnapshot(q, (snap) => {
       const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setBluepackWithdrawals(arr);
+      setBluePackWithdrawals(arr);
     });
-
     return () => unsub();
   }, []);
 
@@ -89,7 +84,7 @@ export function DataProvider({ children }) {
   async function addWithdrawal(data) {
     await addDoc(collection(db, "withdrawals"), {
       ...data,
-      timestamp: Date.now(),
+      timestamp: data.timestamp || Date.now(),
     });
   }
 
@@ -103,17 +98,17 @@ export function DataProvider({ children }) {
   // =========================================
   // ADD WITHDRAWAL BLUEPACK
   // =========================================
-  async function addBluepackWithdrawal(data) {
+  async function addBluePackWithdrawal(data) {
     await addDoc(collection(db, "bluepack_withdrawals"), {
       ...data,
-      timestamp: Date.now(),
+      timestamp: data.timestamp || Date.now(),
     });
   }
 
   // =========================================
   // DELETE WITHDRAWAL BLUEPACK
   // =========================================
-  async function deleteBluepackWithdrawal(id) {
+  async function deleteBluePackWithdrawal(id) {
     await deleteDoc(doc(db, "bluepack_withdrawals", id));
   }
 
@@ -124,26 +119,32 @@ export function DataProvider({ children }) {
     (acc, t) => acc + (t.totalSellPrice || 0),
     0
   );
+
   const totalFee = transactions.reduce(
     (acc, t) => acc + (t.shopeeDiscount || 0),
     0
   );
+
   const totalNet = transactions.reduce(
     (acc, t) => acc + (t.netIncome || 0),
     0
   );
+
   const totalCost = transactions.reduce(
     (acc, t) => acc + (t.totalCost || 0),
     0
   );
+
   const totalProfit = transactions.reduce(
     (acc, t) => acc + (t.profit || 0),
     0
   );
+
   const bluePack = transactions.reduce(
     (acc, t) => acc + (t.bluePack || 0),
     0
   );
+
   const cempakaPack = transactions.reduce(
     (acc, t) => acc + (t.cempakaPack || 0),
     0
@@ -154,12 +155,12 @@ export function DataProvider({ children }) {
     0
   );
 
-  const totalBluepackWithdraw = bluepackWithdrawals.reduce(
+  const totalBluePackWithdraw = bluePackWithdrawals.reduce(
     (acc, w) => acc + (w.amount || 0),
     0
   );
 
-  const saldoBluepack = bluePack - totalBluepackWithdraw;
+  const saldoBluepack = bluePack - totalBluePackWithdraw;
 
   const summary = {
     totalSell,
@@ -169,33 +170,35 @@ export function DataProvider({ children }) {
     totalProfit,
     bluePack,
     cempakaPack,
-
     totalWithdraw, // CempakaPack
-    totalBluepackWithdraw,
+    totalBluePackWithdraw,
     saldoBluepack,
   };
 
   return (
     <DataContext.Provider
       value={{
+        // Data states
         transactions,
         withdrawals,
-        bluepackWithdrawals,
-        summary,
+        bluePackWithdrawals, // Fix: nama konsisten dengan camelCase
         loading,
+        summary,
 
+        // Transaction functions
         addTransaction,
         deleteTransaction,
 
+        // CempakaPack withdrawal functions
         addWithdrawal,
         deleteWithdrawal,
 
-        addBluepackWithdrawal,
-        deleteBluepackWithdrawal,
+        // BluePack withdrawal functions
+        addBluePackWithdrawal, // Fix: nama konsisten dengan camelCase
+        deleteBluePackWithdrawal, // Fix: nama konsisten dengan camelCase
       }}
     >
       {children}
     </DataContext.Provider>
   );
 }
-  

@@ -1,153 +1,78 @@
-// src/components/sidebar/Sidebarr.jsx
-import {
-  Package,
-  Activity,
-  Wallet,
-  BarChart3,
-  X,
-} from "lucide-react";
+// src/components/layout/Sidebarr.jsx
+import { Home, Receipt, Wallet, FileText, Package, X } from "lucide-react";
 import SidebarItem from "./SidebarItem.jsx";
 
-const SIDEBAR_ITEMS = [
-  {
-    to: "/dashboard",
-    label: "Dashboard",
-    icon: Activity,
-  },
-  {
-    to: "/transactions",
-    label: "Transaksi",
-    icon: Package,
-  },
-  {
-    to: "/modal",
-    label: "Laporan Cempakapack",
-    icon: Wallet,
-  },
-  {
-    to: "/bluepack",
-    label: "Laporan Bluepack",
-    icon: Wallet,
-  },
-  {
-    to: "/reports",
-    label: "Riwayat Laporan",
-    icon: BarChart3,
-  },
-];
-
-
-export default function Sidebarr({ currentPath, isOpen, onClose }) {
+export default function Sidebarr({ isOpen, onClose }) {
   return (
     <>
-      {/* DESKTOP SIDEBAR */}
+      {/* Sidebar Container */}
       <aside
-        className="
-          hidden md:flex md:flex-col
-          w-64 xl:w-72
-          bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900
-          text-white
-          border-r border-indigo-800/40
-          fixed top-0 left-0 bottom-0
-          overflow-y-auto
-          z-30
-        "
+        className={`
+          fixed top-0 left-0 z-40 h-screen w-64 bg-slate-800 text-white
+          transition-transform duration-300 ease-in-out
+          lg:translate-x-0
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
       >
-        {/* Logo & brand */}
-        <div className="px-5 pt-5 pb-4 border-b border-white/10 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-white/10 flex items-center justify-center shadow-lg">
-            <span className="text-xl font-black tracking-tight">F</span>
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold">Rekap Shopee</span>
-            <span className="text-[11px] text-white/60">
-              Admin
-            </span>
-          </div>
-        </div>
-
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto hide-scrollbar">
-          {SIDEBAR_ITEMS.map((item) => (
-            <SidebarItem
-              key={item.to}
-              to={item.to}
-              label={item.label}
-              icon={item.icon}
-              isActive={currentPath === item.to}
-            />
-          ))}
-        </nav>
-
-        {/* Footer kecil */}
-        <div className="px-4 py-4 border-t border-white/10 text-[11px] text-white/50">
-          made by firdaus
-        </div>
-      </aside>
-
-      {/* Spacer untuk konten utama */}
-      <div className="hidden md:block w-64 xl:w-72 flex-shrink-0" />
-
-      {/* MOBILE SIDEBAR OVERLAY */}
-      <div
-        className={`fixed inset-0 z-40 md:hidden transition-opacity duration-300 ${
-          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
-      >
-        {/* backdrop */}
-        <div
-          className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-          onClick={onClose}
-        />
-
-        {/* drawer panel */}
-        <aside
-          className="
-            relative h-full w-72 max-w-[80vw]
-            bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900
-            text-white shadow-2xl border-r border-indigo-800/40
-            flex flex-col
-          "
-        >
-          {/* Header mobile */}
-          <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-2xl bg-white/10 flex items-center justify-center shadow-lg">
-                <span className="text-lg font-black tracking-tight">BP</span>
-              </div>
-              <div className="flex flex-col leading-tight">
-                <span className="text-sm font-semibold">
-                  Rekap Keuangan
-                </span>
-                <span className="text-[11px] text-white/60">Admin Panel</span>
-              </div>
+        <div className="flex flex-col h-full">
+          {/* Header with Close Button (Mobile Only) */}
+          <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
+            <div className="flex items-center">
+              <span className="font-bold text-lg">Sidebar Menu</span>
             </div>
 
+            {/* Close button - Only visible on mobile */}
             <button
-              type="button"
               onClick={onClose}
-              className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              aria-label="Tutup menu"
+              className="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+              aria-label="Close menu"
             >
-              <X className="h-4 w-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Nav mobile */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto hide-scrollbar">
-            {SIDEBAR_ITEMS.map((item) => (
-              <SidebarItem
-                key={item.to}
-                to={item.to}
-                label={item.label}
-                icon={item.icon}
-                isActive={currentPath === item.to}
-                onClick={onClose}
-              />
-            ))}
+          {/* Navigation Menu */}
+          <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+            <SidebarItem
+              to="/"
+              icon={Home}
+              label="Beranda"
+              onClick={onClose}
+            />
+            <SidebarItem
+              to="/transactions"
+              icon={Receipt}
+              label="Input Transaksi"
+              onClick={onClose}
+            />
+            <SidebarItem
+              to="/reports"
+              icon={FileText}
+              label="Laporan Penjualan"
+              onClick={onClose}
+            />
+            <SidebarItem
+              to="/cempaka"
+              icon={Wallet}
+              label="Laporan Cempakapack"
+              onClick={onClose}
+            />
+            <SidebarItem
+              to="/bluepack"
+              icon={Package}
+              label="Laporan Bluepack"
+              onClick={onClose}
+            />
           </nav>
-        </aside>
-      </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-slate-700">
+            <p className="text-xs text-slate-400 text-center">
+              © Version 1.0
+            </p>
+          </div>
+        </div>
+      </aside>
     </>
   );
 }
