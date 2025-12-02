@@ -18,7 +18,7 @@ export const useData = () => useContext(DataContext);
 export function DataProvider({ children }) {
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]); // CempakaPack
-  const [bluePackWithdrawals, setBluePackWithdrawals] = useState([]); // BluePack (typo fix)
+  const [bluePackWithdrawals, setBluePackWithdrawals] = useState([]); // BluePack
   const [loading, setLoading] = useState(true);
 
   // =========================================
@@ -51,7 +51,7 @@ export function DataProvider({ children }) {
   // =========================================
   useEffect(() => {
     const q = query(
-      collection(db, "bluepack_withdrawals"),
+      collection(db, "bluePackWithdrawals"),
       orderBy("timestamp", "desc")
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -99,7 +99,7 @@ export function DataProvider({ children }) {
   // ADD WITHDRAWAL BLUEPACK
   // =========================================
   async function addBluePackWithdrawal(data) {
-    await addDoc(collection(db, "bluepack_withdrawals"), {
+    await addDoc(collection(db, "bluePackWithdrawals"), {
       ...data,
       timestamp: data.timestamp || Date.now(),
     });
@@ -109,7 +109,7 @@ export function DataProvider({ children }) {
   // DELETE WITHDRAWAL BLUEPACK
   // =========================================
   async function deleteBluePackWithdrawal(id) {
-    await deleteDoc(doc(db, "bluepack_withdrawals", id));
+    await deleteDoc(doc(db, "bluePackWithdrawals", id));
   }
 
   // =========================================
@@ -181,7 +181,7 @@ export function DataProvider({ children }) {
         // Data states
         transactions,
         withdrawals,
-        bluePackWithdrawals, // Fix: nama konsisten dengan camelCase
+        bluePackWithdrawals,
         loading,
         summary,
 
@@ -194,8 +194,8 @@ export function DataProvider({ children }) {
         deleteWithdrawal,
 
         // BluePack withdrawal functions
-        addBluePackWithdrawal, // Fix: nama konsisten dengan camelCase
-        deleteBluePackWithdrawal, // Fix: nama konsisten dengan camelCase
+        addBluePackWithdrawal,
+        deleteBluePackWithdrawal,
       }}
     >
       {children}
