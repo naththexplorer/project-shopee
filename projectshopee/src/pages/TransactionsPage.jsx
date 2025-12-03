@@ -317,15 +317,15 @@ export default function TransactionsPage() {
                 <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-3 sm:mb-4">Preview Ringkasan</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
                   <div>
-                    <p className="text-slate-600 text-xs sm:text-sm">Total Pendapatan</p>
+                    <p className="text-slate-600 text-xs sm:text-sm">Laba Kotor</p>
                     <p className="text-base sm:text-lg font-bold text-slate-900 tabular-nums mt-0.5">{formatRupiah(totalPreview.totalSell)}</p>
                   </div>
                   <div>
-                    <p className="text-slate-600 text-xs sm:text-sm">Biaya Shopee</p>
+                    <p className="text-slate-600 text-xs sm:text-sm">Potongan Shopee</p>
                     <p className="text-base sm:text-lg font-bold text-red-600 tabular-nums mt-0.5">{formatRupiah(totalPreview.totalFee)}</p>
                   </div>
                   <div>
-                    <p className="text-slate-600 text-xs sm:text-sm">Modal</p>
+                    <p className="text-slate-600 text-xs sm:text-sm">Modal Belanja</p>
                     <p className="text-base sm:text-lg font-bold text-amber-600 tabular-nums mt-0.5">{formatRupiah(totalPreview.totalCost)}</p>
                   </div>
                   <div>

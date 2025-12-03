@@ -403,7 +403,7 @@ export default function BluePackPage() {
                   <table className="min-w-full divide-y divide-slate-200">
                     <thead>
                       <tr className="bg-slate-50">
-                        <th className="sticky left-0 z-10 bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">
+                        <th className="sticky left-0 z-10 bg-slate-cd 50 px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">
                           Tanggal
                         </th>
                         <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase">

@@ -213,7 +213,7 @@ export default function ModalPage() {
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
             <h2 className="text-base sm:text-lg font-semibold text-slate-900">
-              Catat Pengembalian Modal
+              Catat Penarikan Saldo Penjual
             </h2>
           </div>
 
@@ -291,7 +291,7 @@ export default function ModalPage() {
             ) : cempakaData.sortedWithdrawals.length === 0 ? (
               <div className="text-center py-8">
                 <Wallet className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm text-slate-500">Belum ada data pengembalian modal</p>
+                <p className="text-sm text-slate-500">Belum ada data penarikan saldo</p>
               </div>
             ) : (
               <div className="overflow-x-auto -mx-4 sm:mx-0">
