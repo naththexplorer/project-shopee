@@ -1,5 +1,5 @@
 // src/pages/ReportsPage.jsx
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useData } from "../context/DataContext.jsx";
 import { formatRupiah, formatNumber, formatDate } from "../utils/formatters.js";
 import { FileText, Download, Calendar, TrendingUp, Package, Users, DollarSign } from "lucide-react";
@@ -9,6 +9,50 @@ export default function ReportsPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Set default filter "Bulan Ini" saat pertama load
+  useEffect(() => {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    setStartDate(firstDay.toISOString().slice(0, 10));
+    setEndDate(lastDay.toISOString().slice(0, 10));
+  }, []);
+
+  // Quick filter functions
+  const setFilterToday = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    setStartDate(today);
+    setEndDate(today);
+  };
+
+  const setFilterThisWeek = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const firstDay = new Date(today);
+    firstDay.setDate(today.getDate() - dayOfWeek);
+    const lastDay = new Date(today);
+    lastDay.setDate(today.getDate() + (6 - dayOfWeek));
+
+    setStartDate(firstDay.toISOString().slice(0, 10));
+    setEndDate(lastDay.toISOString().slice(0, 10));
+  };
+
+  const setFilterThisMonth = () => {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    setStartDate(firstDay.toISOString().slice(0, 10));
+    setEndDate(lastDay.toISOString().slice(0, 10));
+  };
+
+  const clearFilter = () => {
+    setStartDate("");
+    setEndDate("");
+  };
+
+  // Calculate report data
   const reportData = useMemo(() => {
     const txAll = Array.isArray(transactions) ? transactions : [];
 
@@ -120,7 +164,41 @@ export default function ReportsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6">
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4">
+          {/* Quick Filters */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
+              Quick Filter
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={setFilterToday}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Hari Ini
+              </button>
+              <button
+                onClick={setFilterThisWeek}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Minggu Ini
+              </button>
+              <button
+                onClick={setFilterThisMonth}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+              >
+                Bulan Ini
+              </button>
+              <button
+                onClick={clearFilter}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          {/* Custom Date Range */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
@@ -158,6 +236,16 @@ export default function ReportsPage() {
               </button>
             </div>
           </div>
+
+          {/* Active Filter Info */}
+          {(startDate || endDate) && (
+            <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
+              <Calendar className="w-4 h-4" />
+              <span>
+                Menampilkan data: {startDate ? formatDate(startDate) : "Awal"} - {endDate ? formatDate(endDate) : "Akhir"}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Summary Cards */}
@@ -167,7 +255,7 @@ export default function ReportsPage() {
               <TrendingUp className="w-4 h-4 text-emerald-600" />
               <p className="text-xs font-medium text-slate-600">Pendapatan</p>
             </div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 tabular-nums">
+            <p className="text-base sm:text-lg md:text-xl font-bold text-slate-900 tabular-nums break-words">
               {formatRupiah(reportData.summary.totalRevenue)}
             </p>
           </div>
@@ -177,7 +265,7 @@ export default function ReportsPage() {
               <DollarSign className="w-4 h-4 text-blue-600" />
               <p className="text-xs font-medium text-slate-600">Laba</p>
             </div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 tabular-nums">
+            <p className="text-base sm:text-lg md:text-xl font-bold text-slate-900 tabular-nums break-words">
               {formatRupiah(reportData.summary.totalProfit)}
             </p>
           </div>
@@ -187,7 +275,7 @@ export default function ReportsPage() {
               <Package className="w-4 h-4 text-purple-600" />
               <p className="text-xs font-medium text-slate-600">Item Terjual</p>
             </div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 tabular-nums">
+            <p className="text-base sm:text-lg md:text-xl font-bold text-slate-900 tabular-nums break-words">
               {formatNumber(reportData.summary.totalItems)}
             </p>
           </div>
@@ -197,7 +285,7 @@ export default function ReportsPage() {
               <Users className="w-4 h-4 text-amber-600" />
               <p className="text-xs font-medium text-slate-600">Pembeli</p>
             </div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 tabular-nums">
+            <p className="text-base sm:text-lg md:text-xl font-bold text-slate-900 tabular-nums break-words">
               {reportData.summary.uniqueBuyers}
             </p>
           </div>

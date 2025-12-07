@@ -18,7 +18,14 @@ export default function LoginPage() {
 
     setTimeout(() => {
       login(role);
-      navigate("/dashboard");
+
+      // Redirect berdasarkan role
+      if (role === "cempakapack") {
+        navigate("/transactions");
+      } else {
+        navigate("/dashboard");
+      }
+
       document.body.style.opacity = "1";
     }, 150);
   };

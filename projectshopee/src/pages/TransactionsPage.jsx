@@ -174,10 +174,21 @@ export default function TransactionsPage() {
     });
   }, [transactions, searchTerm, filterProductCode, filterStartDate, filterEndDate]);
 
-  const sortedTransactions = useMemo(
-    () => [...filteredTransactions].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)),
-    [filteredTransactions]
-  );
+  // LIMIT 50 jika tidak ada filter aktif
+  const sortedTransactions = useMemo(() => {
+    const sorted = [...filteredTransactions].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    // Cek apakah ada filter aktif
+    const hasActiveFilter = searchTerm.trim() || filterProductCode || filterStartDate || filterEndDate;
+
+    // Jika TIDAK ada filter, limit 50 terakhir
+    if (!hasActiveFilter) {
+      return sorted.slice(0, 50);
+    }
+
+    // Jika ada filter, tampilkan semua hasil
+    return sorted;
+  }, [filteredTransactions, searchTerm, filterProductCode, filterStartDate, filterEndDate]);
 
   const handleDelete = async (id) => {
     if (!id) return;
@@ -191,6 +202,9 @@ export default function TransactionsPage() {
       toast.error("Gagal menghapus transaksi");
     }
   };
+
+  // Cek apakah ada filter aktif untuk info text
+  const hasActiveFilter = searchTerm.trim() || filterProductCode || filterStartDate || filterEndDate;
 
   // ============================================================
   // RENDER
@@ -357,6 +371,11 @@ export default function TransactionsPage() {
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
             <h2 className="text-base sm:text-lg font-semibold text-slate-900">Riwayat Transaksi</h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">
+              {!hasActiveFilter
+                ? "Menampilkan 50 transaksi terakhir. Gunakan filter untuk melihat lebih banyak data."
+                : `Ditemukan ${sortedTransactions.length} transaksi`}
+            </p>
           </div>
 
           {/* Filters - Mobile: 1 col, Desktop: 4 cols */}

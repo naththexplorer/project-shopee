@@ -7,6 +7,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  where,
 } from "firebase/firestore";
 import { db } from "../config/firebase.js";
 import { createContext, useContext, useEffect, useState } from "react";
@@ -17,15 +18,26 @@ export const useData = () => useContext(DataContext);
 
 export function DataProvider({ children }) {
   const [transactions, setTransactions] = useState([]);
-  const [withdrawals, setWithdrawals] = useState([]); // CempakaPack
-  const [bluePackWithdrawals, setBluePackWithdrawals] = useState([]); // BluePack
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [bluePackWithdrawals, setBluePackWithdrawals] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // =========================================
   // REAL-TIME LISTENER TRANSAKSI
+  // Filter 90 hari terakhir untuk performa
   // =========================================
   useEffect(() => {
-    const q = query(collection(db, "transactions"), orderBy("timestamp", "desc"));
+    const today = new Date();
+    const ninetyDaysAgo = new Date(today);
+    ninetyDaysAgo.setDate(today.getDate() - 90);
+    const timestampFilter = ninetyDaysAgo.getTime();
+
+    const q = query(
+      collection(db, "transactions"),
+      where("timestamp", ">=", timestampFilter),
+      orderBy("timestamp", "desc")
+    );
+
     const unsub = onSnapshot(q, (snap) => {
       const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setTransactions(arr);
@@ -36,9 +48,20 @@ export function DataProvider({ children }) {
 
   // =========================================
   // REAL-TIME LISTENER WITHDRAWAL CEMPAKAPACK
+  // Filter 90 hari terakhir
   // =========================================
   useEffect(() => {
-    const q = query(collection(db, "withdrawals"), orderBy("timestamp", "desc"));
+    const today = new Date();
+    const ninetyDaysAgo = new Date(today);
+    ninetyDaysAgo.setDate(today.getDate() - 90);
+    const timestampFilter = ninetyDaysAgo.getTime();
+
+    const q = query(
+      collection(db, "withdrawals"),
+      where("timestamp", ">=", timestampFilter),
+      orderBy("timestamp", "desc")
+    );
+
     const unsub = onSnapshot(q, (snap) => {
       const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setWithdrawals(arr);
@@ -48,12 +71,20 @@ export function DataProvider({ children }) {
 
   // =========================================
   // REAL-TIME LISTENER WITHDRAWAL BLUEPACK
+  // Filter 90 hari terakhir
   // =========================================
   useEffect(() => {
+    const today = new Date();
+    const ninetyDaysAgo = new Date(today);
+    ninetyDaysAgo.setDate(today.getDate() - 90);
+    const timestampFilter = ninetyDaysAgo.getTime();
+
     const q = query(
       collection(db, "bluePackWithdrawals"),
+      where("timestamp", ">=", timestampFilter),
       orderBy("timestamp", "desc")
     );
+
     const unsub = onSnapshot(q, (snap) => {
       const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setBluePackWithdrawals(arr);
@@ -84,6 +115,7 @@ export function DataProvider({ children }) {
   async function addWithdrawal(data) {
     await addDoc(collection(db, "withdrawals"), {
       ...data,
+      type: data.type || "modal",
       timestamp: data.timestamp || Date.now(),
     });
   }
@@ -150,17 +182,25 @@ export function DataProvider({ children }) {
     0
   );
 
-  const totalWithdraw = withdrawals.reduce(
-    (acc, w) => acc + (w.amount || 0),
-    0
-  );
+  // CempakaPack withdrawals (pisah modal vs laba)
+  const totalWithdrawModal = withdrawals
+    .filter(w => w.type === "modal")
+    .reduce((acc, w) => acc + (w.amount || 0), 0);
 
+  const totalWithdrawLaba = withdrawals
+    .filter(w => w.type === "laba")
+    .reduce((acc, w) => acc + (w.amount || 0), 0);
+
+  const sisaModal = totalCost - totalWithdrawModal;
+  const sisaLabaCempaka = cempakaPack - totalWithdrawLaba;
+
+  // BluePack withdrawals
   const totalBluePackWithdraw = bluePackWithdrawals.reduce(
     (acc, w) => acc + (w.amount || 0),
     0
   );
 
-  const saldoBluepack = bluePack - totalBluePackWithdraw;
+  const sisaBluePack = bluePack - totalBluePackWithdraw;
 
   const summary = {
     totalSell,
@@ -170,9 +210,12 @@ export function DataProvider({ children }) {
     totalProfit,
     bluePack,
     cempakaPack,
-    totalWithdraw, // CempakaPack
+    totalWithdrawModal,
+    totalWithdrawLaba,
+    sisaModal,
+    sisaLabaCempaka,
     totalBluePackWithdraw,
-    saldoBluepack,
+    sisaBluePack,
   };
 
   return (

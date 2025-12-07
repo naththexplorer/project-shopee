@@ -15,7 +15,7 @@ export const productList = [
     costPrice: 145,
   },
   {
-    code: "Rp. 160",
+    code: "Rp. 159",
     name: "Pot 15cc",
     type: "satuan",
     sellPrice: 295,
@@ -87,6 +87,13 @@ export const productList = [
     type: "paket",
     sellPrice: 68000,
     costPrice: 42000,
+  },
+  {
+    code: "Rp. 1000",
+    name: "Botol lurus refill",
+    type: "satuan",
+    sellPrice: 1100,
+    costPrice: 1000,
   },
 ];
 

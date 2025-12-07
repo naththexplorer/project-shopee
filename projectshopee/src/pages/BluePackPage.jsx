@@ -1,5 +1,5 @@
 // src/pages/BluePackPage.jsx
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useData } from "../context/DataContext.jsx";
 import { formatRupiah, formatNumber, formatDate } from "../utils/formatters.js";
 import { Package, TrendingUp, DollarSign, Calendar, FileText, Wallet, Plus, Trash2, Loader2, TrendingDown } from "lucide-react";
@@ -14,6 +14,49 @@ export default function BluePackPage() {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
+
+  // Set default filter "Bulan Ini" saat pertama load
+  useEffect(() => {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    setStartDate(firstDay.toISOString().slice(0, 10));
+    setEndDate(lastDay.toISOString().slice(0, 10));
+  }, []);
+
+  // Quick filter functions
+  const setFilterToday = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    setStartDate(today);
+    setEndDate(today);
+  };
+
+  const setFilterThisWeek = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const firstDay = new Date(today);
+    firstDay.setDate(today.getDate() - dayOfWeek);
+    const lastDay = new Date(today);
+    lastDay.setDate(today.getDate() + (6 - dayOfWeek));
+
+    setStartDate(firstDay.toISOString().slice(0, 10));
+    setEndDate(lastDay.toISOString().slice(0, 10));
+  };
+
+  const setFilterThisMonth = () => {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    setStartDate(firstDay.toISOString().slice(0, 10));
+    setEndDate(lastDay.toISOString().slice(0, 10));
+  };
+
+  const clearFilter = () => {
+    setStartDate("");
+    setEndDate("");
+  };
 
   const bluePackData = useMemo(() => {
     const txAll = Array.isArray(transactions) ? transactions : [];
@@ -154,7 +197,41 @@ export default function BluePackPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6">
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4">
+          {/* Quick Filters */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
+              Quick Filter
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={setFilterToday}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Hari Ini
+              </button>
+              <button
+                onClick={setFilterThisWeek}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Minggu Ini
+              </button>
+              <button
+                onClick={setFilterThisMonth}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+              >
+                Bulan Ini
+              </button>
+              <button
+                onClick={clearFilter}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          {/* Custom Date Range */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
@@ -192,6 +269,16 @@ export default function BluePackPage() {
               </button>
             </div>
           </div>
+
+          {/* Active Filter Info */}
+          {(startDate || endDate) && (
+            <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
+              <Calendar className="w-4 h-4" />
+              <span>
+                Menampilkan data: {startDate ? formatDate(startDate) : "Awal"} - {endDate ? formatDate(endDate) : "Akhir"}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Summary Cards */}
@@ -199,7 +286,7 @@ export default function BluePackPage() {
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 sm:p-4">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-4 h-4 text-emerald-600" />
-              <p className="text-xs font-medium text-slate-600">Total Laba</p>
+              <p className="text-xs font-medium text-slate-600">Laba Bersih</p>
             </div>
             <p className="text-base sm:text-lg md:text-xl font-bold text-slate-900 tabular-nums break-words">
               {formatRupiah(bluePackData.summary.totalProfit)}
@@ -374,7 +461,7 @@ export default function BluePackPage() {
 
         {/* Info Card */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-blue-700">
+          <p className="text-sm text-blue-700">
             💡 <strong>Info:</strong> BluePack menerima 40% dari laba bersih setiap transaksi.
             Data ini menampilkan akumulasi pembagian laba dan riwayat penarikan.
           </p>
@@ -403,7 +490,7 @@ export default function BluePackPage() {
                   <table className="min-w-full divide-y divide-slate-200">
                     <thead>
                       <tr className="bg-slate-50">
-                        <th className="sticky left-0 z-10 bg-slate-cd 50 px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">
+                        <th className="sticky left-0 z-10 bg-slate-50 px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-600 uppercase">
                           Tanggal
                         </th>
                         <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-slate-600 uppercase">

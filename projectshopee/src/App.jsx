@@ -12,7 +12,13 @@ import NotFound from "./pages/NotFound.jsx";
 import ProtectedRoute from "./components/common/ProtectedRoute.jsx";
 
 export default function App() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+
+  // Tentukan default page berdasarkan role
+  const getDefaultPage = () => {
+    if (!user) return "/dashboard";
+    return user.role === "cempakapack" ? "/transactions" : "/dashboard";
+  };
 
   return (
     <Routes>
@@ -21,7 +27,7 @@ export default function App() {
         path="/login"
         element={
           isAuthenticated ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to={getDefaultPage()} replace />
           ) : (
             <LoginPage />
           )
@@ -37,7 +43,7 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<Navigate to={getDefaultPage()} replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="modal" element={<ModalPage />} />
